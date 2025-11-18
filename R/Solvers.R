@@ -358,6 +358,12 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' \itemize{
 #'  \item{"theta_hat"}{ A numerical matrix of size \code{p}-times-\code{1} of 
 #'  estimated regression coefficients.}
+#'  \item{"resids"}{ A numerical vecotor of length \code{n} containing the final
+#'  set of residuals in the fit of \code{Y} on \code{Z}.}
+#'  \item{"hat_values"}{ Diagonal terms of the (penalized) hat matrix of
+#'  the form \code{Z*solve(t(Z)*Z + n*lambda*H)*t(Z)}.}
+#'  \item{"fitted"}{ Fitted values in the model. A vector of length \code{n} 
+#'  correponding to the fits of \code{Y}.}
 #' }
 #' 
 #' @seealso \link{IRLS} for an iterative version of this
@@ -397,14 +403,12 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   if(lambda<0) stop("lambda must be a non-negative number.")
   # if(sc<=0) stop("Scale estimator must be strictly positive.")
   
-  ### Applying the weights (Check that we obtain the same results with IRLS)
-  Z = diag(w)%*%Z
-  Y = w*Y # diag(w) %*% Y if Y is a columns vector
-  
   ### Solve the problem (C++ version)
-  if(vrs=="C") return(HuberQpC(Z, Y, 2*n*lambda*H))
+  if(vrs=="C"){
+    return(HuberQpC(Z, Y, 2*n*lambda*H, w))
+  }
   
-  huber_qp_osqp_penalized <- function(X, y, H, delta = 1.345) {
+  huber_qp_osqp_penalized <- function(X, y, H, w, delta = 1.345) {
     # Input validation
     if (!is.matrix(X)) stop("X must be a matrix")
     if (!is.vector(y)) stop("y must be a vector")
@@ -415,6 +419,11 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     if (!is.matrix(H)) stop("H must be a matrix")
     if (nrow(H) != p || ncol(H) != p) stop("H must be p x p, where p is ncol(X)")
     if (!isSymmetric(H)) stop("H must be symmetric")
+    
+    ### Applying the weights (Check that we obtain the same results with IRLS) #### CHECK
+    ### AAA
+    X1 = diag(w)%*%X
+    y1 = w*y # diag(w) %*% Y if Y is a columns vector
     
     nvars <- p + 2 * n  # variables: beta (p), a (n), t (n)
     ncons <- 3 * n      # constraints: 2n for t_i >= |y_i - X_i^T beta - a_i|, n for t_i >= 0
@@ -433,17 +442,17 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     for (i in 1:n) {
       # Constraint 1: t_i + X_i^T beta + a_i >= y_i
       row1 <- (i - 1) * 2 + 1
-      Amat[row1, 1:p] <- X[i, ]
+      Amat[row1, 1:p] <- X1[i, ]
       Amat[row1, p + i] <- 1
       Amat[row1, p + n + i] <- 1
-      bvec[row1] <- y[i]
+      bvec[row1] <- y1[i]
       
       # Constraint 2: t_i - X_i^T beta - a_i >= -y_i
       row2 <- (i - 1) * 2 + 2
-      Amat[row2, 1:p] <- -X[i, ]
+      Amat[row2, 1:p] <- -X1[i, ]
       Amat[row2, p + i] <- -1
       Amat[row2, p + n + i] <- 1
-      bvec[row2] <- -y[i]
+      bvec[row2] <- -y1[i]
       
       # Constraint 3: t_i >= 0
       row3 <- 2 * n + i
@@ -465,11 +474,22 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     
     # Extract beta
     beta <- sol$x[1:p]
-    return(beta)
+    
+    # Compute Hat matrix 
+    hat = X%*%solve(t(X)%*%diag(w)%*%X+lambda*H,t(X)%*%diag(w),tol=toler_solve)
+    
+    # Compute residuals
+    fitted = X%*%beta
+    resid = y - fitted
+    
+    return(list(theta_hat = beta,
+                resids = resid,
+                hat_values = diag(hat),
+                fitted = fitted))
   }
   
   ### Solve using the R version (relies on the C++ oqsp routine)
-  if(vrs=="R") return(huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H))
+  if(vrs=="R") return(huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H, w))
 }
 
 #' Weight function for the IRLS algorithm

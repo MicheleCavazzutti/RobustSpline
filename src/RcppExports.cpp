@@ -121,16 +121,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // HuberQpC
-Rcpp::List HuberQpC(const arma::mat Z, const arma::vec Y, const arma::mat H, double delta);
-RcppExport SEXP _RobustSpline_HuberQpC(SEXP ZSEXP, SEXP YSEXP, SEXP HSEXP, SEXP deltaSEXP) {
+Rcpp::List HuberQpC(const arma::mat Z, const arma::vec Y, const arma::mat H, const arma::vec w, double delta);
+RcppExport SEXP _RobustSpline_HuberQpC(SEXP ZSEXP, SEXP YSEXP, SEXP HSEXP, SEXP wSEXP, SEXP deltaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
     Rcpp::traits::input_parameter< const arma::vec >::type Y(YSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const arma::vec >::type w(wSEXP);
     Rcpp::traits::input_parameter< double >::type delta(deltaSEXP);
-    rcpp_result_gen = Rcpp::wrap(HuberQpC(Z, Y, H, delta));
+    rcpp_result_gen = Rcpp::wrap(HuberQpC(Z, Y, H, w, delta));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -143,7 +144,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RobustSpline_IRLSC", (DL_FUNC) &_RobustSpline_IRLSC, 11},
     {"_RobustSpline_IRLSCmult", (DL_FUNC) &_RobustSpline_IRLSCmult, 10},
     {"_RobustSpline_ridgeC", (DL_FUNC) &_RobustSpline_ridgeC, 5},
-    {"_RobustSpline_HuberQpC", (DL_FUNC) &_RobustSpline_HuberQpC, 4},
+    {"_RobustSpline_HuberQpC", (DL_FUNC) &_RobustSpline_HuberQpC, 5},
     {NULL, NULL, 0}
 };
 

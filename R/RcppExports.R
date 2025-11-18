@@ -29,7 +29,7 @@ ridgeC <- function(Z, Y, lambda, H, W) {
     .Call(`_RobustSpline_ridgeC`, Z, Y, lambda, H, W)
 }
 
-HuberQpC <- function(Z, Y, H, delta = 1.345) {
-    .Call(`_RobustSpline_HuberQpC`, Z, Y, H, delta)
+HuberQpC <- function(Z, Y, H, w, delta = 1.345) {
+    .Call(`_RobustSpline_HuberQpC`, Z, Y, H, w, delta)
 }
 

@@ -36,6 +36,12 @@ A list composed of:
 \itemize{
  \item{"theta_hat"}{ A numerical matrix of size \code{p}-times-\code{1} of 
  estimated regression coefficients.}
+ \item{"resids"}{ A numerical vecotor of length \code{n} containing the final
+ set of residuals in the fit of \code{Y} on \code{Z}.}
+ \item{"hat_values"}{ Diagonal terms of the (penalized) hat matrix of
+ the form \code{Z*solve(t(Z)*Z + n*lambda*H)*t(Z)}.}
+ \item{"fitted"}{ Fitted values in the model. A vector of length \code{n} 
+ correponding to the fits of \code{Y}.}
 }
 }
 \description{

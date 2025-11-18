@@ -202,6 +202,7 @@ Rcpp::List HuberQpC(
     const arma::mat Z,
     const arma::vec Y,
     const arma::mat H,
+    const arma::vec w,
     double delta = 1.345
 ) {
     int n = Z.n_rows;
@@ -209,6 +210,13 @@ Rcpp::List HuberQpC(
 
     int n_vars = p + 2 * n;   // beta (p), a (n), t (n)
     int n_cons = 3 * n;       // 2n + n
+
+    // Apply weight
+    // diag(w) %*% Z
+    arma::mat Zw = Z.each_col() % w;
+
+    //  w * y (element-wise)
+    arma::vec Yw = w % Y;
 
     // -------------------------------------------------------------------------
     // Build dense P (block diagonal)
@@ -239,15 +247,15 @@ Rcpp::List HuberQpC(
         int row2 = 2 * i + 1;
         int row3 = 2 * n + i;
 
-        Amat.submat(row1, 0, row1, p - 1) = Z.row(i);
+        Amat.submat(row1, 0, row1, p - 1) = Zw.row(i);
         Amat(row1, p + i) = 1.0;
         Amat(row1, p + n + i) = 1.0;
-        bvec(row1) = Y(i);
+        bvec(row1) = Yw(i);
 
-        Amat.submat(row2, 0, row2, p - 1) = -Z.row(i);
+        Amat.submat(row2, 0, row2, p - 1) = -Zw.row(i);
         Amat(row2, p + i) = -1.0;
         Amat(row2, p + n + i) = 1.0;
-        bvec(row2) = -Y(i);
+        bvec(row2) = -Yw(i);
 
         Amat(row3, p + n + i) = 1.0;
         bvec(row3) = 0.0;
@@ -408,5 +416,29 @@ Rcpp::List HuberQpC(
     OSQPCscMatrix_free(P_csc);
     OSQPSettings_free(settings);
 
-    return Rcpp::List::create(Rcpp::Named("theta_hat") = theta_new);
+    // Prepare the output
+    // Compute Zt * W * Z using broadcasting
+    arma::mat ZtW = Z.t() * (Z.each_col() % w);   // p x p
+
+    // Construct RHS: Zt * W
+    arma::mat ZtW2 = Z.t();
+    ZtW2.each_row() %= w.t();                     // p x n
+
+    // Matrix to invert: Xt W X + lambda H
+    arma::mat A = ZtW + H;
+
+    // Solve
+    arma::mat hat = Z * arma::solve(A, ZtW2, arma::solve_opts::likely_sympd); // arma::solve_opts::likely_sympd because the matrix is likely psd (for large lambdas) and this makes the code faster and stable
+
+    // Residuals
+    arma::vec fitted = Z * theta_new;
+    arma::vec resid = Y - fitted;
+
+    // Hat values
+    arma::vec hat_diag = hat.diag();
+  
+    return Rcpp::List::create(Rcpp::Named("theta_hat") = theta_new,
+			      Rcpp::Named("resids") = resid,
+			      Rcpp::Named("hat_values") = hat_diag,
+			      Rcpp::Named("fitted") = fitted);
 }
