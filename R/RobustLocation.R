@@ -390,9 +390,12 @@ transform_theta_location = function(theta, tspr){
 #' \link{IRLS}.
 #' 
 #' @param method A method for estimating the fit. Possible options are 
-#' \code{"IRLS"} for the IRLS algorithm, or \code{"ridge"} for ridge regression.
+#' \code{"IRLS"} for the IRLS algorithm, \code{"ridge"} for ridge regression, or
+#' \code{"HuberQp"} for Huber regression based on quadratic programming.
 #' Ridge is applicable only if \code{type="square"}; this method is much faster,
-#' but provides only a non-robust fit.
+#' but provides only a non-robust fit. HuberQp is applicable only if \code{type="huber"};
+#' this method is faster than the IRLS and also provides a robust fit. However, is not 
+#' as fast as ridge.
 #' 
 #' @param plotCV Indicator of whether a plot of the evaluated cross-validation 
 #' criteria as a function of \code{lambda} should be given.
@@ -472,7 +475,7 @@ ts_location = function(Y, tobs, r, type,
                        tolerGCV=toler, imaxGCV=imax,
                        echo = FALSE){
   
-  method = match.arg(method,c("IRLS", "ridge"))
+  method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
   type = match.arg(type,c("square","absolute","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
@@ -569,6 +572,8 @@ ts_location = function(Y, tobs, r, type,
                  toler=toler, imax=imax)
     if(method=="ridge")
       res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
+    if(method=="HuberQp")
+      res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
     res_ts = transform_theta_location(res$theta_hat,tspr)
     if(method=="IRLS") return(
       list(lambda = lambda,
@@ -582,6 +587,15 @@ ts_location = function(Y, tobs, r, type,
            weights = res$weights, 
            converged = res$converged))
     if(method=="ridge") return(
+      list(lambda = lambda,
+           fitted = res$fitted, 
+           residuals = Y-res$fitted,
+           theta_hat = res$theta_hat,
+           beta_hat = res_ts$beta_hat,
+           gamma_hat = res_ts$gamma_hat,
+           delta_hat = res_ts$delta_hat,
+           hat_values = res$hat_values))
+    if(method=="HuberQp") return(
       list(lambda = lambda,
            fitted = res$fitted, 
            residuals = Y-res$fitted,
@@ -609,6 +623,8 @@ ts_location = function(Y, tobs, r, type,
                    toler=toler, imax=imax)
       if(method=="ridge")
         res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
+      if(method=="HuberQp")
+        res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
       res_ts = transform_theta_location(res$theta_hat,tspr)
       fitted[,jcv] = res$fitted
       thetahat[,jcv] = res$theta_hat

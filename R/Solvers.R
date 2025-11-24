@@ -307,11 +307,13 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     n = length(Y)
     th = solve(t(Z)%*%diag(w)%*%Z+lambda*H,t(Z)%*%diag(w)%*%Y,
                tol=toler_solve)
+    fitted =  Z%*%th
     hat = Z%*%solve(t(Z)%*%diag(w)%*%Z+lambda*H,t(Z)%*%diag(w),tol=toler_solve)
-    resid = Y - Z%*%th
+    resid = Y - fitted
     return(list(theta_hat = th,
                 resids = resid, 
-                hat_values = diag(hat)))
+                hat_values = diag(hat),
+                fitted = fitted))
   }
   
   if(vrs=="R") return(ridge_R(Z, Y, lambda, H, w, toler_solve))
@@ -390,9 +392,10 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
 
 HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
-  
   n = length(Y)
   if(is.null(w)) w = rep(1/n,n)
+  # Scale the weights i order to obtain the exact result of IRLS (the entire equation is scaled)
+  w = w*n 
   vrs = match.arg(vrs,c("C","R"))
   if(nrow(Z)!=length(Y)) 
     stop("Number of rows of Z must equal the lenght of Y.")
