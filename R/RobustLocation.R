@@ -269,12 +269,12 @@ ts_predict_location = function(tobs, tobsnew, gamma, delta, r){
 #' Transform the vector of estimated coefficients for location estimation
 #'
 #' Splits the vector of raw estimated coefficients (output of functions 
-#' \link{IRLS} or \link{ridge}) after performing \link{ts_preprocess_locationi} 
+#' \link{IRLS}, \link{ridge} or \link{HuberQp}) after performing \link{ts_preprocess_locationi} 
 #' into parts interpretable in the setup of thin-plate spline location 
 #' estimation.
 #'
 #' @param theta Output vector of raw results of length \code{p} from function
-#' \link{IRLS} or \link{ridge}.
+#' \link{IRLS}, \link{ridge} or \link{HuberQp}.
 #'
 #' @param tspr Output of \link{ts_preprocess_location}.
 #'
@@ -479,6 +479,8 @@ ts_location = function(Y, tobs, r, type,
   type = match.arg(type,c("square","absolute","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
+  if(method=="HuberQp" & type!="huber") 
+    stop("method 'HuberQp' available only for type 'huber'.")
   
   jcv = match.arg(jcv,c("all", "AIC", "GCV", "GCV(tr)", "BIC", "rGCV", 
                         "rGCV(tr)", "custom"))
