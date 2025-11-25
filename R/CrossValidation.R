@@ -193,10 +193,12 @@ GCV_location <- function(lambda, Z, Y, H, type, w, vrs="C",
                          resids.in = rep(1,length(Y)),
                          toler=1e-7, imax=1000){
   
-  method = match.arg(method,c("IRLS", "ridge"))
+  method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
   type = match.arg(type,c("square","absolute","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
+  if(method=="HuberQp" & type!="huber") 
+    stop("method 'HuberQp' available only for type 'huber'.")
   
   # Generalized cross-validation
   ncv = 6
@@ -213,6 +215,11 @@ GCV_location <- function(lambda, Z, Y, H, type, w, vrs="C",
   }
   if(method=="ridge"){
     fit.r <- ridge(Z, Y, lambda, H, w=w, vrs=vrs)
+    GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,custfun=custfun)
+    return(c(GCV.scores, 1, 0))
+  }
+  if(method=="HuberQp"){
+    fit.r <- HuberQp(Z, Y, lambda, H, w=w, vrs=vrs)
     GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,custfun=custfun)
     return(c(GCV.scores, 1, 0))
   }
