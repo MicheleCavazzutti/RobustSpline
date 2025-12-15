@@ -10,6 +10,7 @@ ts_reg(
   tobs,
   m,
   type,
+  alpha = 1/2,
   jcv = "all",
   sc = 1,
   vrs = "C",
@@ -40,12 +41,18 @@ of size \code{p}-times-\code{d}, one row per domain point.}
 \item{m}{Order of the thin-plate spline, positive integer.}
 
 \item{type}{The type of the loss function used in the minimization problem.
-Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+\code{type="quantile"} for the (asymmetric) quantile loss 
+\code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 \code{type="logistic"} for the logistic loss 
 \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
+
+\item{alpha}{The order of the quantile if \code{type="quantile"}. By default
+taken to be \code{alpha=1/2}, which gives the absolute loss 
+(\code{type="absolute"}).}
 
 \item{jcv}{A numerical indicator of the cross-validation method used to 
 select the tuning parameter \code{lambda}. The criteria are always 
@@ -190,9 +197,9 @@ type = "absolute" # absolute loss
 res = ts_reg(X, Y, tobs, m = 2, type = type, jcv = "all", plotCV = TRUE)
 }
 \references{
-Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 
+Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
 with discretely sampled predictors. 
-\emph{Under review}.
+\emph{Computational Statistics and Data Analysis}, to appear.
 }
 \seealso{
 \link{ts_ridge} for a faster (non-robust) version of

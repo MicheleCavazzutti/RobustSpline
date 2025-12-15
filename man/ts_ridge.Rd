@@ -148,9 +148,9 @@ tobs = matrix(sort(runif(p)),ncol=1)
 res = ts_ridge(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
 }
 \references{
-Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 
+Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
 with discretely sampled predictors. 
-\emph{Under review}.
+\emph{Computational Statistics and Data Analysis}, to appear.
 }
 \seealso{
 \link{ts_reg} for a robust version of this method.

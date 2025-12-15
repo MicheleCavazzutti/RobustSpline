@@ -58,7 +58,7 @@
 #' n = 20 # sample size
 #' truemeanf = function(x) 10+15*x[1]^2 # true mean function
 #' truemean = apply(tobs,1,truemeanf) # discretized values of the true mean
-#' Y = replicate(n, truemean + rnorm(m)) # matrix of discrete functiona data, size p*n
+#' Y = replicate(n, truemean + rnorm(m)) # matrix of discrete functional data, size p*n
 #' tsp = ts_preprocess_location(Y, tobs, 2) # preprocessing matrices 
 #' 
 #' lambda0 = 1e-5 # regularization parameter
@@ -336,7 +336,7 @@ transform_theta_location = function(theta, tspr){
               beta_hat = c(Omega%*%ghat + Phi%*%dhat)))
 }
 
-#' Robust thin-plate splines location estmation for functional data
+#' Robust thin-plate splines location estimation for functional data
 #'
 #' Provides a (potentially robust) thin-plates spline location estimator for 
 #' discretely observed functional data. The functional data do not need to be 
@@ -355,12 +355,18 @@ transform_theta_location = function(theta, tspr){
 #' @param r Order of the thin-plate spline, positive integer.
 #'
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #' 
 #' @param jcv A numerical indicator of the cross-validation method used to 
 #' select the tuning parameter \code{lambda}. The criteria are always 
@@ -454,7 +460,7 @@ transform_theta_location = function(theta, tspr){
 #' @examples
 #' d = 1                              # dimension of domain
 #' m = 50                             # number of observation points
-#' tobs = matrix(runif(m*d), ncol=d)  # location of obsevation points
+#' tobs = matrix(runif(m*d), ncol=d)  # location of observation points
 #' n = 20                             # sample size
 #' truemeanf = function(x)            # true location function 
 #'   cos(4*pi*x[1])
@@ -468,7 +474,7 @@ transform_theta_location = function(theta, tspr){
 #' 
 #' res = ts_location(Y, tobs=tobs, r=2, type="square", plotCV=TRUE)
 
-ts_location = function(Y, tobs, r, type, 
+ts_location = function(Y, tobs, r, type, alpha=1/2,
                        jcv = "all", vrs="C", method="IRLS",
                        plotCV=FALSE, lambda_grid=NULL,
                        lambda_length = 51, custfun=NULL,
@@ -478,7 +484,7 @@ ts_location = function(Y, tobs, r, type,
                        echo = FALSE){
   
   method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
-  type = match.arg(type,c("square","absolute","Huber","logistic"))
+  type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
@@ -523,7 +529,7 @@ ts_location = function(Y, tobs, r, type,
   
   GCVfull <- Vectorize(
     function(x) GCV_location(x,
-                             Z = Z, Y = Y, H = H, type=type, w=w, vrs=vrs,
+                             Z = Z, Y = Y, H = H, type=type, alpha=alpha, w=w, vrs=vrs,
                              method = method,
                              custfun = custfun,
                              resids.in = resids.in,
@@ -571,7 +577,7 @@ ts_location = function(Y, tobs, r, type,
     lambda = lopt[jcv] # lambda parameter selected
     #
     if(method=="IRLS") 
-      res = IRLS(Z,Y,lambda,H,type=type,w=w,vrs=vrs,sc=1, 
+      res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
                  resids.in = resids.in, 
                  toler=toler, imax=imax)
     if(method=="ridge")
@@ -622,7 +628,7 @@ ts_location = function(Y, tobs, r, type,
       lambda = lopt[jcv] # lambda parameter selected
       #
       if(method=="IRLS")
-        res = IRLS(Z,Y,lambda,H,type=type,w=w,vrs=vrs,sc=1, 
+        res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
                    resids.in = resids.in, 
                    toler=toler, imax=imax)
       if(method=="ridge")

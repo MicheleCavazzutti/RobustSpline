@@ -52,21 +52,22 @@ BEGIN_RCPP
 END_RCPP
 }
 // psiwC
-arma::vec psiwC(arma::vec t, int type, double tuning);
-RcppExport SEXP _RobustSpline_psiwC(SEXP tSEXP, SEXP typeSEXP, SEXP tuningSEXP) {
+arma::vec psiwC(arma::vec t, int type, double alpha, double tuning);
+RcppExport SEXP _RobustSpline_psiwC(SEXP tSEXP, SEXP typeSEXP, SEXP alphaSEXP, SEXP tuningSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type t(tSEXP);
     Rcpp::traits::input_parameter< int >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< double >::type tuning(tuningSEXP);
-    rcpp_result_gen = Rcpp::wrap(psiwC(t, type, tuning));
+    rcpp_result_gen = Rcpp::wrap(psiwC(t, type, alpha, tuning));
     return rcpp_result_gen;
 END_RCPP
 }
 // IRLSC
-Rcpp::List IRLSC(arma::mat Z, arma::vec Y, double lambda, arma::mat H, int type, arma::vec W, double sc, arma::vec residsin, double tuning, double toler, int imax);
-RcppExport SEXP _RobustSpline_IRLSC(SEXP ZSEXP, SEXP YSEXP, SEXP lambdaSEXP, SEXP HSEXP, SEXP typeSEXP, SEXP WSEXP, SEXP scSEXP, SEXP residsinSEXP, SEXP tuningSEXP, SEXP tolerSEXP, SEXP imaxSEXP) {
+Rcpp::List IRLSC(arma::mat Z, arma::vec Y, double lambda, arma::mat H, int type, double alpha, arma::vec W, double sc, arma::vec residsin, double tuning, double toler, int imax);
+RcppExport SEXP _RobustSpline_IRLSC(SEXP ZSEXP, SEXP YSEXP, SEXP lambdaSEXP, SEXP HSEXP, SEXP typeSEXP, SEXP alphaSEXP, SEXP WSEXP, SEXP scSEXP, SEXP residsinSEXP, SEXP tuningSEXP, SEXP tolerSEXP, SEXP imaxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -75,19 +76,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type H(HSEXP);
     Rcpp::traits::input_parameter< int >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type W(WSEXP);
     Rcpp::traits::input_parameter< double >::type sc(scSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type residsin(residsinSEXP);
     Rcpp::traits::input_parameter< double >::type tuning(tuningSEXP);
     Rcpp::traits::input_parameter< double >::type toler(tolerSEXP);
     Rcpp::traits::input_parameter< int >::type imax(imaxSEXP);
-    rcpp_result_gen = Rcpp::wrap(IRLSC(Z, Y, lambda, H, type, W, sc, residsin, tuning, toler, imax));
+    rcpp_result_gen = Rcpp::wrap(IRLSC(Z, Y, lambda, H, type, alpha, W, sc, residsin, tuning, toler, imax));
     return rcpp_result_gen;
 END_RCPP
 }
 // IRLSCmult
-Rcpp::List IRLSCmult(arma::mat Z, arma::vec Y, arma::vec lambda, arma::mat H, int type, arma::vec W, double sc, double tuning, double toler, int imax);
-RcppExport SEXP _RobustSpline_IRLSCmult(SEXP ZSEXP, SEXP YSEXP, SEXP lambdaSEXP, SEXP HSEXP, SEXP typeSEXP, SEXP WSEXP, SEXP scSEXP, SEXP tuningSEXP, SEXP tolerSEXP, SEXP imaxSEXP) {
+Rcpp::List IRLSCmult(arma::mat Z, arma::vec Y, arma::vec lambda, arma::mat H, int type, double alpha, arma::vec W, double sc, double tuning, double toler, int imax);
+RcppExport SEXP _RobustSpline_IRLSCmult(SEXP ZSEXP, SEXP YSEXP, SEXP lambdaSEXP, SEXP HSEXP, SEXP typeSEXP, SEXP alphaSEXP, SEXP WSEXP, SEXP scSEXP, SEXP tuningSEXP, SEXP tolerSEXP, SEXP imaxSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -96,12 +98,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type H(HSEXP);
     Rcpp::traits::input_parameter< int >::type type(typeSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type W(WSEXP);
     Rcpp::traits::input_parameter< double >::type sc(scSEXP);
     Rcpp::traits::input_parameter< double >::type tuning(tuningSEXP);
     Rcpp::traits::input_parameter< double >::type toler(tolerSEXP);
     Rcpp::traits::input_parameter< int >::type imax(imaxSEXP);
-    rcpp_result_gen = Rcpp::wrap(IRLSCmult(Z, Y, lambda, H, type, W, sc, tuning, toler, imax));
+    rcpp_result_gen = Rcpp::wrap(IRLSCmult(Z, Y, lambda, H, type, alpha, W, sc, tuning, toler, imax));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -140,9 +143,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RobustSpline_distn", (DL_FUNC) &_RobustSpline_distn, 3},
     {"_RobustSpline_distnAB", (DL_FUNC) &_RobustSpline_distnAB, 5},
     {"_RobustSpline_solveC", (DL_FUNC) &_RobustSpline_solveC, 2},
-    {"_RobustSpline_psiwC", (DL_FUNC) &_RobustSpline_psiwC, 3},
-    {"_RobustSpline_IRLSC", (DL_FUNC) &_RobustSpline_IRLSC, 11},
-    {"_RobustSpline_IRLSCmult", (DL_FUNC) &_RobustSpline_IRLSCmult, 10},
+    {"_RobustSpline_psiwC", (DL_FUNC) &_RobustSpline_psiwC, 4},
+    {"_RobustSpline_IRLSC", (DL_FUNC) &_RobustSpline_IRLSC, 12},
+    {"_RobustSpline_IRLSCmult", (DL_FUNC) &_RobustSpline_IRLSCmult, 11},
     {"_RobustSpline_ridgeC", (DL_FUNC) &_RobustSpline_ridgeC, 5},
     {"_RobustSpline_HuberQpC", (DL_FUNC) &_RobustSpline_HuberQpC, 5},
     {NULL, NULL, 0}

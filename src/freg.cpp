@@ -13,12 +13,12 @@
 // 31.08.2025
 
 // [[Rcpp::export()]]
-arma::vec psiwC (arma::vec t, int type, double tuning){
+arma::vec psiwC (arma::vec t, int type, double alpha, double tuning){
 // function that gives the weights psi(t)/(2*t) (with 2 in the denominator)
 // for reweighting in the IRLS algorithm
 
 // type: the type of the loss function used. Encoding:
-//       1 for the absolute loss
+//       1 for the absolute (quantile) loss
 //       2 for the square loss
 //       3 for the Huber loss, in this case tuning is the constant in the loss
 //       4 for the logistic loss
@@ -29,17 +29,17 @@ arma::vec psiwC (arma::vec t, int type, double tuning){
   if(type == 1){
     if(tuning == 0){  // if tuning == 0 => absolute loss without tuning
       for(int i=0; i<n; i++){
-        if(t(i)>0) res(i) = 0.5/t(i);
-        if(t(i)<0) res(i) = -0.5/t(i);
+        if(t(i)>0) res(i) = alpha/(2*t(i)); // 0.5/t(i);
+        if(t(i)<0) res(i) = (alpha-1)/(2*t(i)); // -0.5/t(i);
         if(t(i)==0) res(i) = R_PosInf; 
       }
     } else {
       for(int i=0; i<n; i++){
         if(abs(t(i))<=tuning){
-          res(i) = 0.5/tuning;
+          res(i) = alpha/(2*tuning); // 0.5/tuning;
         } else {
-          if(t(i)>0) res(i) = 0.5/t(i);
-          if(t(i)<0) res(i) = -0.5/t(i);
+          if(t(i)>0) res(i) = alpha/(2*t(i)); // 0.5/t(i);
+          if(t(i)<0) res(i) = (alpha-1)/(2*t(i)); // -0.5/t(i);
         }
       }
     }
@@ -92,7 +92,7 @@ arma::vec psiwC (arma::vec t, int type, double tuning){
 
 // [[Rcpp::export()]]
 Rcpp::List IRLSC (arma::mat Z, arma::vec Y, double lambda, arma::mat H,
-  int type, arma::vec W, double sc, arma::vec residsin, double tuning, double toler, int imax){
+  int type, double alpha, arma::vec W, double sc, arma::vec residsin, double tuning, double toler, int imax){
   
   int ic = 0, istop = 0;
   int n = Y.n_elem, p1 = Z.n_cols;
@@ -104,7 +104,7 @@ Rcpp::List IRLSC (arma::mat Z, arma::vec Y, double lambda, arma::mat H,
   
   while(istop == 0 && ic < imax){
     ic++;
-    w = W % psiwC(residsin/sc, type, tuning); // element-wise product
+    w = W % psiwC(residsin/sc, type, alpha, tuning); // element-wise product
     w = w/(sc*sc); // scaling affects only the weights
     for(int j1=0; j1<n; j1++){
       ZW.col(j1) = Zt.col(j1)*w(j1);        
@@ -135,7 +135,7 @@ Rcpp::List IRLSC (arma::mat Z, arma::vec Y, double lambda, arma::mat H,
 
 // [[Rcpp::export()]]
 Rcpp::List IRLSCmult (arma::mat Z, arma::vec Y, arma::vec lambda, arma::mat H,
-  int type, arma::vec W, double sc, double tuning, double toler, int imax){
+  int type, double alpha, arma::vec W, double sc, double tuning, double toler, int imax){
 
   int n = Y.n_elem, p1 = Z.n_cols, nlambda = lambda.n_elem;  
   // Rcpp::Rcout << nlambda << std::endl;
@@ -150,7 +150,7 @@ Rcpp::List IRLSCmult (arma::mat Z, arma::vec Y, arma::vec lambda, arma::mat H,
   for(int k=0; k<nlambda; k++){
     while(istop(k) == 0 && ic(k) < imax){
       ic(k)++;
-      w = W % psiwC(resids.col(k)/sc, type, tuning); // element-wise product
+      w = W % psiwC(resids.col(k)/sc, type, alpha, tuning); // element-wise product
       w = w/(sc*sc); // scaling affects only the weights
       for(int j1=0; j1<n; j1++){
         ZW.col(j1) = Zt.col(j1)*w(j1);        

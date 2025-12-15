@@ -2,9 +2,9 @@ Package: RobustSpline
 Type: Package
 Title: Thin-plate spline methodology for functional data.
 Version: 0.4.0
-Date: 2025-11-12
+Date: 2025-12-15
 Authors@R: c(person("Stanislav", "Nagy", role = c("aut", "cre"),
-		     email = "eleonora.arnone@polimi.it"),
+		     email = "nagy@karlin.mff.cuni.cz"),
 		     person("Michele", "Cavazzutti", role = "ctb")
 		     )
 Maintainer: Stanislav Nagy <nagy@karlin.mff.cuni.cz>
@@ -13,4 +13,4 @@ License: GPL-2
 Depends: R (>= 2.10.0), deldir, quantreg, polyclip, osqp
 Imports: Rcpp (>= 1.0.10)
 LinkingTo: Rcpp, RcppArmadillo, osqp
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

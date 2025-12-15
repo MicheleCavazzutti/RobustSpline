@@ -4,7 +4,7 @@
 \alias{kCV}
 \title{k-fold cross-validation for the IRLS procedure}
 \usage{
-kCV(lambda, Z, Y, H, type, k = 5, vrs = "C")
+kCV(lambda, Z, Y, H, type, alpha = 1/2, k = 5, vrs = "C")
 }
 \arguments{
 \item{lambda}{A candidate parameter value; non-negative real number.}
@@ -18,17 +18,23 @@ the number of observations, \code{p} is the dimension.}
 is used inside the quadratic term for penalizing estimated parameters.}
 
 \item{type}{The type of the loss function used in the minimization problem.
-Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+\code{type="quantile"} for the (asymmetric) quantile loss 
+\code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 \code{type="logistic"} for the logistic loss 
 \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
 
+\item{alpha}{The order of the quantile if \code{type="quantile"}. By default
+taken to be \code{alpha=1/2}, which gives the absolute loss 
+(\code{type="absolute"}).}
+
 \item{k}{Number of folds to consider, positive integer. By default
 set to 5.}
 
-\item{vrs}{Version of the algorhitm to be used in function \link{IRLS}; 
+\item{vrs}{Version of the algorithm to be used in function \link{IRLS}; 
 either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the 
 \code{R} version. Both should give (nearly) identical results, see 
 \link{IRLS}.}

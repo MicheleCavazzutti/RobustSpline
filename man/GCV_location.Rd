@@ -10,6 +10,7 @@ GCV_location(
   Y,
   H,
   type,
+  alpha = 1/2,
   w,
   vrs = "C",
   method = "IRLS",
@@ -31,12 +32,18 @@ the number of observations, \code{p} is the dimension.}
 is used inside the quadratic term for penalizing estimated parameters.}
 
 \item{type}{The type of the loss function used in the minimization problem.
-Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+\code{type="quantile"} for the (asymmetric) quantile loss 
+\code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 \code{type="logistic"} for the logistic loss 
 \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
+
+\item{alpha}{The order of the quantile if \code{type="quantile"}. By default
+taken to be \code{alpha=1/2}, which gives the absolute loss 
+(\code{type="absolute"}).}
 
 \item{w}{Vector of length \code{n} of weights attached to the elements of 
 \code{Y}. If \code{w=NULL} (default), a constant vector with values 

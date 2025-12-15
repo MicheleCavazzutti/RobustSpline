@@ -24,7 +24,7 @@ help(package="RobustSpline")
 
 All major functions in the package are implemented both in R and in C++ for computational efficacy.
 
-- Ioannis Kalogridis and Stanislav Nagy. (2025). [Robust functional regression with discretely sampled predictors.](https://arxiv.org/abs/2311.13291) _Under review._
+- Ioannis Kalogridis and Stanislav Nagy. (2025). [Robust functional regression with discretely sampled predictors.](https://arxiv.org/abs/2311.13291) _Computational Statistics and Data Analysis,_ to appear.
 - Ioannis Kalogridis and Stanislav Nagy. (2025). Robust multidimensional location estimation from discretely sampled functional data.
 
 ## Regression for functional predictors and scalar response

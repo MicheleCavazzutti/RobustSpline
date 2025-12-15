@@ -247,12 +247,18 @@ generate = function(alpha0, beta0, n, d, p,
 #' @param Y Vector of responses of length \code{n}.
 #' 
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #' 
 #' @param p1 Number of equidistant discretization points in the interval [0,1]
 #' in each dimension \code{d} of the domain. The total number of discretization
@@ -305,7 +311,7 @@ generate = function(alpha0, beta0, n, d, p,
 
 reconstruct = function(ts_prep = NULL, 
                        theta=NULL, lambda=NULL,
-                       Y=NULL, type=NULL,
+                       Y=NULL, type=NULL, alpha=1/2,
                        p1 = 101,
                        betafull=NULL,main=NULL){
   tgrid = seq(0,1,length=p1)
@@ -317,7 +323,7 @@ reconstruct = function(ts_prep = NULL,
     if(any(is.null(ts_prep$Z),is.null(Y),is.null(ts_prep$H),is.null(type)))
       stop("Z, Y, H, and type must be provided if theta is to be estimated.")
     # estimate directly
-    res = IRLS(ts_prep$Z,Y,lambda,ts_prep$H,type)
+    res = IRLS(ts_prep$Z,Y,lambda,ts_prep$H,type, alpha)
     theta = transform_theta(res$theta_hat,ts_prep)
   } else res = NULL
   

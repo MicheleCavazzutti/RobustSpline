@@ -15,13 +15,19 @@
 #' is used inside the quadratic term for penalizing estimated parameters.
 #' 
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
 #'
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
+#' 
 #' @param w Vector of length \code{n} of weights attached to the elements of 
 #' \code{Y}. If \code{w=NULL} (default), a constant vector with values 
 #' \code{1/n} is used.
@@ -32,21 +38,23 @@
 #' @param resids.in Initialization of the vector of residuals used to launch 
 #' the IRLS algorithm.
 #' 
-#' @param tuning A non-negative tuning constant for the absolute loss function 
-#' (that is, \code{type="absolute"}). For \code{tuning = 0} the standard 
-#' absolute loss \code{rho(t) = |t|} is used. For \code{tuning > 0}, the Huber 
+#' @param tuning A non-negative tuning constant for the absolute/quantile loss 
+#' function (that is, \code{type="absolute"} or \code{type="quantile"}). 
+#' For \code{tuning = 0} the standard 
+#' absolute loss \code{rho(t) = |t|/2} is used (or its asymmetric version for
+#' the quantile loss). For \code{tuning > 0}, the Huber 
 #' loss is used, that is \code{rho(t)} is quadratic for \code{|t|<tuning} and 
 #' linear for \code{|t|>=tuning}. The function is chosen so that \code{rho} 
 #' is always continuously differentiable.
 #' 
 #' @param toler A small positive constant specifying the tolerance level for 
-#' terminating the algorithm. The prcedure stops if the maximum absolute 
+#' terminating the algorithm. The procedure stops if the maximum absolute 
 #' distance between the residuals in the previous iteration and the new 
 #' residuals drops below \code{toler}.
 #' 
 #' @param imax Maximum number of allowed iterations of IRLS. 
 #'
-#' @param vrs Version of the algorhitm to be used. The program is prepared in
+#' @param vrs Version of the algorithm to be used. The program is prepared in
 #' two versions: i) \code{vrs="C"} calls the \code{C++} version of the 
 #' algorithm, programmed within the \code{RCppArmadillo} framework for
 #' manipulating matrices. This is typically the fastest version. 
@@ -93,9 +101,9 @@
 #' }
 #'
 #' @references
-#' Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 
+#' Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
 #' with discretely sampled predictors. 
-#' \emph{Under review}.
+#' \emph{Computational Statistics and Data Analysis}, to appear.
 #'
 #' Peter. J. Huber. (1981). Robust Statistics, \emph{New York: John Wiley.}
 #'
@@ -119,15 +127,15 @@
 #' res_R$ic
 #' # Check the maximum absolute difference between the results
 #' max(abs(res_C$theta_hat-res_R$theta_hat))
-#' # Visualise the difference between the results
+#' # Visualize the difference between the results
 #' plot(res_C$theta_hat ~ res_R$theta_hat)
 
-IRLS = function(Z, Y, lambda, H, type, w=NULL, sc = 1, 
+IRLS = function(Z, Y, lambda, H, type, alpha=1/2, w=NULL, sc = 1, 
                 resids.in = rep(1,length(Y)), 
                 tuning=NULL, toler=1e-7, imax=1000, vrs="C", 
                 toler_solve=1e-35){
   
-  IRLS_R <- function(Z, Y, lambda, H, type, w=NULL, sc, resids.in, 
+  IRLS_R <- function(Z, Y, lambda, H, type, alpha=1/2, w=NULL, sc, resids.in, 
                       tuning, toler, imax, toler_solve){
     n = length(Y)
     if(is.null(w)) w = rep(1/n,n)
@@ -138,7 +146,7 @@ IRLS = function(Z, Y, lambda, H, type, w=NULL, sc = 1,
     while(istop == 0 & ic < imax){
       ic = ic + 1
       #
-      Wdiag = c(w*psiw(resids.in/sc,type,tuning)/sc^2)
+      Wdiag = c(w*psiw(resids.in/sc,type,alpha,tuning)/sc^2)
       naind = (is.na(Wdiag)) & (abs(resids.in)<tuning)
       Wdiag[naind] = w[naind]*1 # division 0/0
       naind = (is.na(Wdiag))
@@ -171,8 +179,9 @@ IRLS = function(Z, Y, lambda, H, type, w=NULL, sc = 1,
   n = length(Y)
   if(is.null(w)) w = rep(1/n,n)
   vrs = match.arg(vrs,c("C","R"))
-  type = match.arg(type,c("square","absolute","Huber","logistic"))
-  type = switch(type, absolute = 1, square = 2, Huber = 3, logistic = 4)
+  type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
+  type = switch(type, absolute = 1, quantile=1, square = 2, Huber = 3, logistic = 4)
+  if(type==1 & is.null(alpha)) alpha = 1/2
   if(type==3 & is.null(tuning)){
     tuning = 1.345
     # warning("Huber loss, setting constant to default 1.345.")
@@ -196,16 +205,16 @@ IRLS = function(Z, Y, lambda, H, type, w=NULL, sc = 1,
     rs = tryCatch(
       error = function(cnd){
         warning(paste0("Solve in C++ crashed, switching to R version, ",cnd))
-        IRLS_R(Z, Y, lambda, H, type, w, sc, resids.in, 
+        IRLS_R(Z, Y, lambda, H, type, alpha, w, sc, resids.in, 
                tuning, toler, imax, toler_solve)
       }, {
-        IRLSC(Z, Y, lambda, H, type, w, sc, resids.in, 
+        IRLSC(Z, Y, lambda, H, type, alpha, w, sc, resids.in, 
               tuning, toler, imax)
       })
     return(rs)
   }
   
-  if(vrs=="R") return(IRLS_R(Z, Y, lambda, H, type, w, sc, resids.in, 
+  if(vrs=="R") return(IRLS_R(Z, Y, lambda, H, type, alpha, w, sc, resids.in, 
                              tuning, toler, imax, toler_solve))
 }
 
@@ -503,14 +512,19 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' @param t Vector of input values of length \code{n}.
 #'
 #' @param type Integer code for the type of loss function. Accepted are
-#' \code{type=1} for the absolute loss \code{rho(t)=|t|}; \code{type=2} for
+#' \code{type=1} for the absolute loss \code{rho(t)=|t|/2}, or more generally
+#' the quantile loss \code{rho(t)=t(alpha-I[t<0])}; \code{type=2} for
 #' the square loss \code{rho(t)=t^2}; \code{type=3} for the Huber loss
 #' \code{rho(t)=t^2/2} if \code{|t|<tuning} and 
 #' \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and \code{type=4} for the
 #' logistic loss \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #'
-#' @param tuning Tuning parameter, a non-negative real number. For the absolute
-#' this should be a small number that 'smooths' out the numerical effects of
+#' @param tuning Tuning parameter, a non-negative real number. For the absolute 
+#' or the quantile loss this should be a small number that 'smooths' out the numerical effects of
 #' the kink of \code{rho} near the origin (by default \code{tuning = 1/100}. 
 #' For the Huber loss \code{tuning} is the constant to be used in the function
 #' (by default \code{tuning = 1.345}. For \code{type=2} or \code{type=4} this 
@@ -525,7 +539,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' curve(psiw(x,type=3),-5,5) # Huber loss
 #' curve(psiw(x,type=4),-5,5) # logistic loss
 
-psiw = function(t,type,tuning=NULL){
+psiw = function(t,type,alpha=1/2,tuning=NULL){
   # Type is now only the code 1-4
   if(type==3 & is.null(tuning)){
     tuning = 1.345
@@ -536,7 +550,7 @@ psiw = function(t,type,tuning=NULL){
     # warning("absolute loss, setting tuning to default 1/100.")    
   }
   if(is.null(tuning)) tuning = 0
-  return(psiwC(t,type,tuning))
+  return(psiwC(t,type,alpha,tuning))
 }
 
 #' Loss functions
@@ -545,16 +559,22 @@ psiw = function(t,type,tuning=NULL){
 #'
 #' @param t Vector of input values of length \code{n}.
 #'
-#' @param type Integer code for the type of loss function. Accepted are
-#' \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' @param type The type of the loss function used in the minimization problem.
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
-#' \code{|t|<Hk} and \code{rho(t)=Hk*(|t|-Hk/2)} otherwise; and 
+#'  \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #'
-#' @param Hk Tuning parameter, a non-negative real number, affects only
-#' the Huber loss (by default \code{Hk = 1.345}.
+#' @param tuning tuning parameter, a non-negative real number, affects only
+#' the Huber loss (by default \code{tuning = 1.345}.
 #'
 #' @return A numerical vector of values.
 #'
@@ -564,13 +584,14 @@ psiw = function(t,type,tuning=NULL){
 #' curve(rho(x,type="Huber"),-5,5) # Huber loss
 #' curve(rho(x,type="logistic"),-5,5) # logistic loss
 
-rho = function(t,type,Hk=1.345){          # loss function
-  type = match.arg(type,c("square","absolute","Huber","logistic"))
-  if(Hk<0) stop("Hk must be a non-negative number.")
-  if(type=="absolute") return(abs(t))
+rho = function(t,type,tuning=1.345){          # loss function
+  type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
+  if(tuning<0) stop("tuning must be a non-negative number.")
+  if(type=="absolute") return(t*(1/2-(t<0)))
+  if(type=="quantile") return(t*(alpha-(t<0)))
   if(type=="square") return(abs(t)^2)
   if(type=="Huber"){
-    return((abs(t)<=Hk)*(t^2/2) + (abs(t)>Hk)*(Hk*(abs(t)-Hk/2)))
+    return((abs(t)<=tuning)*(t^2/2) + (abs(t)>tuning)*(tuning*(abs(t)-tuning/2)))
   }
   if(type=="logistic") return(2*t + 4*log(1+exp(-t))-4*log(2))
 }

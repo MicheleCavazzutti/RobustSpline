@@ -10,6 +10,7 @@ IRLS(
   lambda,
   H,
   type,
+  alpha = 1/2,
   w = NULL,
   sc = 1,
   resids.in = rep(1, length(Y)),
@@ -32,12 +33,18 @@ the number of observations, \code{p} is the dimension.}
 is used inside the quadratic term for penalizing estimated parameters.}
 
 \item{type}{The type of the loss function used in the minimization problem.
-Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+\code{type="quantile"} for the (asymmetric) quantile loss 
+\code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 \code{type="logistic"} for the logistic loss 
 \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
+
+\item{alpha}{The order of the quantile if \code{type="quantile"}. By default
+taken to be \code{alpha=1/2}, which gives the absolute loss 
+(\code{type="absolute"}).}
 
 \item{w}{Vector of length \code{n} of weights attached to the elements of 
 \code{Y}. If \code{w=NULL} (default), a constant vector with values 
@@ -49,15 +56,17 @@ that is no scaling is performed.}
 \item{resids.in}{Initialization of the vector of residuals used to launch 
 the IRLS algorithm.}
 
-\item{tuning}{A non-negative tuning constant for the absolute loss function 
-(that is, \code{type="absolute"}). For \code{tuning = 0} the standard 
-absolute loss \code{rho(t) = |t|} is used. For \code{tuning > 0}, the Huber 
+\item{tuning}{A non-negative tuning constant for the absolute/quantile loss 
+function (that is, \code{type="absolute"} or \code{type="tuning"}). 
+For \code{tuning = 0} the standard 
+absolute loss \code{rho(t) = |t|/2} is used (or its asymmetric version for
+the quantile loss). For \code{tuning > 0}, the Huber 
 loss is used, that is \code{rho(t)} is quadratic for \code{|t|<tuning} and 
 linear for \code{|t|>=tuning}. The function is chosen so that \code{rho} 
 is always continuously differentiable.}
 
 \item{toler}{A small positive constant specifying the tolerance level for 
-terminating the algorithm. The prcedure stops if the maximum absolute 
+terminating the algorithm. The procedure stops if the maximum absolute 
 distance between the residuals in the previous iteration and the new 
 residuals drops below \code{toler}.}
 
@@ -137,9 +146,9 @@ max(abs(res_C$theta_hat-res_R$theta_hat))
 plot(res_C$theta_hat ~ res_R$theta_hat)
 }
 \references{
-Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 
+Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
 with discretely sampled predictors. 
-\emph{Under review}.
+\emph{Computational Statistics and Data Analysis}, to appear.
 
 Peter. J. Huber. (1981). Robust Statistics, \emph{New York: John Wiley.}
 }

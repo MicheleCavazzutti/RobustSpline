@@ -4,19 +4,25 @@
 \alias{psiw}
 \title{Weight function for the IRLS algorithm}
 \usage{
-psiw(t, type, tuning = NULL)
+psiw(t, type, alpha = 1/2, tuning = NULL)
 }
 \arguments{
 \item{t}{Vector of input values of length \code{n}.}
 
 \item{type}{Integer code for the type of loss function. Accepted are
-\code{type=1} for the absolute loss \code{rho(t)=|t|}; \code{type=2} for
+\code{type=1} for the absolute loss \code{rho(t)=|t|/2}, or more generally
+the quantile loss \code{rho(t)=t(alpha-I[t<0])}; \code{type=2} for
 the square loss \code{rho(t)=t^2}; \code{type=3} for the Huber loss
 \code{rho(t)=t^2/2} if \code{|t|<tuning} and 
 \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and \code{type=4} for the
 logistic loss \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
 
+\item{alpha}{The order of the quantile if \code{type="quantile"}. By default
+taken to be \code{alpha=1/2}, which gives the absolute loss 
+(\code{type="absolute"}).}
+
 \item{tuning}{Tuning parameter, a non-negative real number. For the absolute
+or the quantile loss,
 this should be a small number that 'smooths' out the numerical effects of
 the kink of \code{rho} near the origin (by default \code{tuning = 1/100}. 
 For the Huber loss \code{tuning} is the constant to be used in the function

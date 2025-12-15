@@ -253,12 +253,18 @@ transform_theta = function(theta,tspr){
 #' @param m Order of the thin-plate spline, positive integer.
 #'
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #' 
 #' @param jcv A numerical indicator of the cross-validation method used to 
 #' select the tuning parameter \code{lambda}. The criteria are always 
@@ -387,9 +393,9 @@ transform_theta = function(theta,tspr){
 #' columns, each corresponding to one cross-validation method. 
 #'
 #' @references
-#' Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 
+#' Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
 #' with discretely sampled predictors. 
-#' \emph{Under review}.
+#' \emph{Computational Statistics and Data Analysis}, to appear.
 #'
 #' @seealso \link{ts_ridge} for a faster (non-robust) version of
 #' this method applied with \code{type="square"}.
@@ -406,7 +412,7 @@ transform_theta = function(theta,tspr){
 #' 
 #' res = ts_reg(X, Y, tobs, m = 2, type = type, jcv = "all", plotCV = TRUE)
 
-ts_reg = function(X, Y, tobs, m, type, jcv = "all", 
+ts_reg = function(X, Y, tobs, m, type, alpha=1/2, jcv = "all", 
                   sc = 1, vrs="C", 
                   plotCV=FALSE, lambda_grid=NULL,
                   custfun=NULL, int_weights=TRUE, 
@@ -452,7 +458,7 @@ ts_reg = function(X, Y, tobs, m, type, jcv = "all",
   }
   GCVfull <- Vectorize(
     function(x) GCV(x,
-                    Z = Z, Y = Y, H = H, type=type, 
+                    Z = Z, Y = Y, H = H, type=type, alpha=alpha,
                     sc = sc, 
                     vrs=vrs,
                     custfun = custfun, 
@@ -502,7 +508,7 @@ ts_reg = function(X, Y, tobs, m, type, jcv = "all",
   if(jcv>0){
     lambda = lopt[jcv] # lambda parameter selected
     #
-    res = IRLS(Z,Y,lambda,H,type,vrs=vrs,sc=sc, 
+    res = IRLS(Z,Y,lambda,H,type,alpha=alpha,vrs=vrs,sc=sc, 
                resids.in = resids.in, 
                toler=toler, imax=imax)
     res_ts = transform_theta(res$theta_hat,tspr)
@@ -526,7 +532,7 @@ ts_reg = function(X, Y, tobs, m, type, jcv = "all",
     for(jcv in 1:ncv){
       lambda = lopt[jcv] # lambda parameter selected
       #
-      res = IRLS(Z,Y,lambda,H,type,vrs=vrs,sc=sc, 
+      res = IRLS(Z,Y,lambda,H,type,alpha=alpha,vrs=vrs,sc=sc, 
                  resids.in = resids.in,
                  toler=toler, imax=imax)
       res_ts = transform_theta(res$theta_hat,tspr)

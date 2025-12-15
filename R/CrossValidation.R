@@ -15,12 +15,18 @@
 #' is used inside the quadratic term for penalizing estimated parameters.
 #' 
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #' 
 #' @param sc Scale parameter to be used in the IRLS. By default \code{sc=1}, 
 #' that is no scaling is performed.
@@ -85,7 +91,7 @@
 #'     
 #' GCV(lambda,Z,Y,H,type,custfun = function(r,h) sum(r^2))
 
-GCV <- function(lambda, Z, Y, H, type, sc = 1, 
+GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1, 
                 vrs="C", custfun=NULL, 
                 resids.in = rep(1,length(Y)),
                 toler=1e-7, imax=1000){
@@ -93,7 +99,7 @@ GCV <- function(lambda, Z, Y, H, type, sc = 1,
   ncv = 6
   if(!is.null(custfun)) ncv = 7
   vrs = match.arg(vrs, c("C", "R"))
-  fit.r <- IRLS(Z, Y, lambda, H, type, sc = sc, vrs=vrs, 
+  fit.r <- IRLS(Z, Y, lambda, H, type, alpha = alpha, sc = sc, vrs=vrs, 
                 resids.in = resids.in,
                 toler=toler, imax=imax)
   GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,
@@ -119,12 +125,18 @@ GCV <- function(lambda, Z, Y, H, type, sc = 1,
 #' is used inside the quadratic term for penalizing estimated parameters.
 #' 
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #' 
 #' @param w Vector of length \code{n} of weights attached to the elements of 
 #' \code{Y}. If \code{w=NULL} (default), a constant vector with values 
@@ -187,14 +199,14 @@ GCV <- function(lambda, Z, Y, H, type, sc = 1,
 #' w = rep(1/n,n)
 #' GCV_location(lambda,Z,Y,H,type,w,custfun = function(r,h) sum(r^2))
 
-GCV_location <- function(lambda, Z, Y, H, type, w, vrs="C", 
+GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C", 
                          method="IRLS",
                          custfun=NULL, 
                          resids.in = rep(1,length(Y)),
                          toler=1e-7, imax=1000){
   
   method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
-  type = match.arg(type,c("square","absolute","Huber","logistic"))
+  type = match.arg(type,c("square","absolute", "quantile", "Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
@@ -472,17 +484,23 @@ GCV_crit = function(resids, hats, custfun=NULL){
 #' is used inside the quadratic term for penalizing estimated parameters.
 #' 
 #' @param type The type of the loss function used in the minimization problem.
-#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|}; 
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 #' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 #' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
 #'
 #' @param k Number of folds to consider, positive integer. By default
 #' set to 5.
 #' 
-#' @param vrs Version of the algorhitm to be used in function \link{IRLS}; 
+#' @param vrs Version of the algorithm to be used in function \link{IRLS}; 
 #' either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the 
 #' \code{R} version. Both should give (nearly) identical results, see 
 #' \link{IRLS}.
@@ -504,7 +522,7 @@ GCV_crit = function(resids, hats, custfun=NULL){
 #' 
 #' kCV(lambda,Z,Y,H,type,k=5)
 
-kCV = function(lambda,Z,Y,H,type,k=5,vrs="C"){
+kCV = function(lambda,Z,Y,H,type,alpha=1/2,k=5,vrs="C"){
   # k-fold cross-validation
   vrs = match.arg(vrs, c("C", "R"))
   n = length(Y)
@@ -520,7 +538,7 @@ kCV = function(lambda,Z,Y,H,type,k=5,vrs="C"){
     Ye = Y[!bi]  # Y for estimation
     Zt = Z[bi,]  # Z for testing
     Yt = Y[bi]   # Y for testing
-    fit.r <- IRLS(Ze,Ye,lambda,H,type,vrs=vrs)
+    fit.r <- IRLS(Ze,Ye,lambda,H,type,alpha=alpha,vrs=vrs)
     rest = Yt - Zt%*%fit.r$theta_hat # residuals for the testing part
     # if(fit.r$converged==0) rest = rep(Inf,length(Yt)) # If IRLS did not converge
     crit[ki] = median(rest^2) # robustbase::scaleTau2(rest^2, c2 = 5)
