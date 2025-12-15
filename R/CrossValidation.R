@@ -197,8 +197,8 @@ GCV_location <- function(lambda, Z, Y, H, type, w, vrs="C",
   type = match.arg(type,c("square","absolute","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
-  if(method=="HuberQp" & type!="huber") 
-    stop("method 'HuberQp' available only for type 'huber'.")
+  if(method=="HuberQp" & type!="Huber") 
+    stop("method 'HuberQp' available only for type 'Huber'.")
   
   # Generalized cross-validation
   ncv = 6

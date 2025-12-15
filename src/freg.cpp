@@ -197,6 +197,92 @@ Rcpp::List ridgeC (arma::mat Z, arma::vec Y, double lambda, arma::mat H, arma::v
 }
 
 
+using namespace Rcpp;
+
+// ----------------------------------------------------------------------------
+// Helper: convert arma::sp_mat -> CSC vectors (column-major, rows sorted)
+// ----------------------------------------------------------------------------
+static void spmat_to_csc_vectors(
+    const arma::sp_mat& S,
+    std::vector<OSQPFloat>& x_out,
+    std::vector<OSQPInt>& i_out,
+    std::vector<OSQPInt>& p_out
+) {
+    const arma::uword ncol = S.n_cols;
+    x_out.clear();
+    i_out.clear();
+    p_out.clear();
+    p_out.reserve(ncol + 1);
+    p_out.push_back(0);
+
+    for (arma::uword col = 0; col < ncol; ++col) {
+        // iterate over nonzeros in this column (Armadillo gives row-ordered iteration)
+        for (arma::sp_mat::const_iterator it = S.begin_col(col); it != S.end_col(col); ++it) {
+            double val = static_cast<double>(*it);
+            if (val != 0.0) {
+                x_out.push_back(static_cast<OSQPFloat>(val));
+                i_out.push_back(static_cast<OSQPInt>(it.row()));
+            }
+        }
+        p_out.push_back(static_cast<OSQPInt>(x_out.size()));
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Helper: build block-diagonal sparse P like bdiag(H+epsI, (1+eps)I_n, eps I_n)
+// and return lower-triangular part (equivalent to Matrix::bdiag behavior)
+// ----------------------------------------------------------------------------
+static arma::sp_mat make_block_P_sp(const arma::mat& H, int p, int n, double eps = 1e-6) {
+  arma::mat Hp = 0.5 * (H + H.t());
+  
+  for (int i = 0; i < p; ++i) {
+    if (std::fabs(Hp(i,i)) < 1e-12)
+      Hp(i,i) = 1e-12;
+  }
+  
+  //----------------------------------------------------------------------
+  // 3. Add eps * I (guaranteed > 0)
+  //----------------------------------------------------------------------
+  Hp = Hp + eps * arma::eye<arma::mat>(p, p);
+  
+  arma::sp_mat Hs(Hp);   // convert to sparse
+  
+  //----------------------------------------------------------------------
+  // 4. Build (1+eps) I_n and eps I_n with guaranteed positive diagonal
+  //----------------------------------------------------------------------
+  arma::sp_mat I1 = arma::speye<arma::sp_mat>(n, n);
+  arma::sp_mat I2 = arma::speye<arma::sp_mat>(n, n);
+  
+  for (int i = 0; i < n; ++i) {
+    I1(i, i) = 1.0 + eps;
+    I2(i, i) = eps > 1e-12 ? eps : 1e-12;
+  }
+    
+  //----------------------------------------------------------------------
+  // 5. Assemble block diagonal sparse matrix
+  //----------------------------------------------------------------------
+  int N = p + n + n;
+  arma::sp_mat Psp(N, N);
+    
+  Psp.submat(0,      0,      p - 1,     p - 1)     = Hs;
+  Psp.submat(p,      p,      p + n - 1, p + n - 1) = I1;
+  Psp.submat(p + n,  p + n,  p + 2*n - 1, p + 2*n - 1) = I2;
+
+  //----------------------------------------------------------------------
+  // 6. Return lower triangular part (OSQP expects triangular)
+  //----------------------------------------------------------------------
+  //return arma::trimatl(Psp);
+  return arma::trimatu(Psp);
+}
+
+// ----------------------------------------------------------------------------
+// Helper: convert dense Amat (arma::mat) to sparse arma::sp_mat (removes zeros)
+// ----------------------------------------------------------------------------
+static arma::sp_mat make_A_sp(const arma::mat& Adense) {
+    arma::sp_mat Asp(Adense); // Armadillo will drop exact zeros
+    return Asp;
+}
+
 // [[Rcpp::export()]]
 Rcpp::List HuberQpC(
     const arma::mat Z,
@@ -205,106 +291,75 @@ Rcpp::List HuberQpC(
     const arma::vec w,
     double delta = 1.345
 ) {
-    int n = Z.n_rows;
-    int p = Z.n_cols;
+    int n = (int) Z.n_rows;
+    int p = (int) Z.n_cols;
 
     int n_vars = p + 2 * n;   // beta (p), a (n), t (n)
     int n_cons = 3 * n;       // 2n + n
 
-    // Apply weight
-    // diag(w) %*% Z
+    // Apply weight: diag(w) %*% Z  (Z each_col % w)
     arma::mat Zw = Z.each_col() % w;
 
-    //  w * y (element-wise)
+    // w * Y (element-wise)
     arma::vec Yw = w % Y;
 
     // -------------------------------------------------------------------------
-    // Build dense P (block diagonal)
+    // Build P as sparse, following bdiag(H + eps I, (1+eps)I_n, eps I_n)
     // -------------------------------------------------------------------------
-    arma::mat Hp = H + 1e-6 * arma::eye(p, p);
-    arma::mat In1 = (1 + 1e-6) * arma::eye(n, n);
-    arma::mat In2 = 1e-6 * arma::eye(n, n);
-
-    arma::mat P = arma::zeros(n_vars, n_vars);
-    P.submat(0, 0, p - 1, p - 1) = Hp;
-    P.submat(p, p, p + n - 1, p + n - 1) = In1;
-    P.submat(p + n, p + n, n_vars - 1, n_vars - 1) = In2;
+    arma::sp_mat Psp = make_block_P_sp(H, p, n, 1e-6);
 
     // -------------------------------------------------------------------------
     // q vector
     // -------------------------------------------------------------------------
-    arma::vec qvec = arma::zeros(n_vars);
-    qvec.subvec(p + n, n_vars - 1).fill(delta);
+    arma::vec qvec = arma::zeros<arma::vec>(n_vars);
+    for (int i = p + n; i < n_vars; ++i) qvec(i) = delta;
 
     // -------------------------------------------------------------------------
-    // Build A matrix (dense then to sparse)
+    // Build A matrix (dense then convert to sparse)
     // -------------------------------------------------------------------------
-    arma::mat Amat = arma::zeros(n_cons, n_vars);
-    arma::vec bvec = arma::zeros(n_cons);
+    arma::mat Amat = arma::zeros<arma::mat>(n_cons, n_vars);
+    arma::vec bvec = arma::zeros<arma::vec>(n_cons);
 
-    for (int i = 0; i < n; ++i) {
-        int row1 = 2 * i;
-        int row2 = 2 * i + 1;
-        int row3 = 2 * n + i;
+    for (int ii = 0; ii < n; ++ii) {
+        int row1 = 2 * ii;
+        int row2 = 2 * ii + 1;
+        int row3 = 2 * n + ii;
 
-        Amat.submat(row1, 0, row1, p - 1) = Zw.row(i);
-        Amat(row1, p + i) = 1.0;
-        Amat(row1, p + n + i) = 1.0;
-        bvec(row1) = Yw(i);
+        // Zw.row(ii) is 1 x p
+        Amat.submat(row1, 0, row1, p - 1) = Zw.row(ii);
+        Amat(row1, p + ii) = 1.0;
+        Amat(row1, p + n + ii) = 1.0;
+        bvec(row1) = Yw(ii);
 
-        Amat.submat(row2, 0, row2, p - 1) = -Zw.row(i);
-        Amat(row2, p + i) = -1.0;
-        Amat(row2, p + n + i) = 1.0;
-        bvec(row2) = -Yw(i);
+        Amat.submat(row2, 0, row2, p - 1) = -Zw.row(ii);
+        Amat(row2, p + ii) = -1.0;
+        Amat(row2, p + n + ii) = 1.0;
+        bvec(row2) = -Yw(ii);
 
-        Amat(row3, p + n + i) = 1.0;
+        Amat(row3, p + n + ii) = 1.0;
         bvec(row3) = 0.0;
     }
 
     arma::vec lvec = bvec;
-    arma::vec uvec(n_cons);
-    uvec.fill(std::numeric_limits<double>::infinity());
+    std::vector<double> uvec(n_cons);
+    for (int i = 0; i < n_cons; ++i) uvec[i] = std::numeric_limits<double>::infinity();
+
+    // Convert Amat to sparse (drops zeros, sorts indices)
+    arma::sp_mat Asp = make_A_sp(Amat);
 
     // -------------------------------------------------------------------------
-    // Convert P and A to CSC arrays suitable for OSQP (new API)
-    // We'll build column-by-column (CSC) arrays.
-    // For P: OSQP requires the upper-triangular part only. We'll iterate j >= i.
+    // Convert sparse arma::sp_mat -> CSC vectors for OSQP (P and A)
     // -------------------------------------------------------------------------
-
-    // ---- P: extract upper triangular CSC representation ----
     std::vector<OSQPFloat> Px;
     std::vector<OSQPInt>   Pi;
-    std::vector<OSQPInt>   Pp; Pp.reserve(n_vars + 1);
-    Pp.push_back(0);
-
-    for (int j = 0; j < n_vars; ++j) {
-        for (int i = 0; i <= j; ++i) {              // upper triangular (i <= j)
-            double v = P(i, j);
-            if (v != 0.0) {
-                Px.push_back(static_cast<OSQPFloat>(v));
-                Pi.push_back(static_cast<OSQPInt>(i));
-            }
-        }
-        Pp.push_back(static_cast<OSQPInt>(Px.size()));
-    }
+    std::vector<OSQPInt>   Pp;
+    spmat_to_csc_vectors(Psp, Px, Pi, Pp);
     OSQPInt P_nnz = static_cast<OSQPInt>(Px.size());
 
-    // ---- A: full matrix CSC representation ----
     std::vector<OSQPFloat> Ax;
     std::vector<OSQPInt>   Ai;
-    std::vector<OSQPInt>   Ap; Ap.reserve(n_vars + 1);
-    Ap.push_back(0);
-
-    for (int j = 0; j < n_vars; ++j) {
-        for (int i = 0; i < n_cons; ++i) {
-            double v = Amat(i, j);
-            if (v != 0.0) {
-                Ax.push_back(static_cast<OSQPFloat>(v));
-                Ai.push_back(static_cast<OSQPInt>(i));
-            }
-        }
-        Ap.push_back(static_cast<OSQPInt>(Ax.size()));
-    }
+    std::vector<OSQPInt>   Ap;
+    spmat_to_csc_vectors(Asp, Ax, Ai, Ap);
     OSQPInt A_nnz = static_cast<OSQPInt>(Ax.size());
 
     // ---- q, l, u as OSQPFloat arrays ----
@@ -314,7 +369,7 @@ Rcpp::List HuberQpC(
     std::vector<OSQPFloat> l_osqp(n_cons), u_osqp(n_cons);
     for (int i = 0; i < n_cons; ++i) {
         l_osqp[i] = static_cast<OSQPFloat>(lvec(i));
-        double uval = uvec(i);
+        double uval = uvec[i];
         if (std::isinf(uval) && uval > 0) {
             u_osqp[i] = OSQP_INFTY;
         } else if (std::isinf(uval) && uval < 0) {
@@ -326,7 +381,6 @@ Rcpp::List HuberQpC(
 
     // -------------------------------------------------------------------------
     // Create OSQP CSC matrices (they keep pointers to our arrays)
-    // Use OSQPCscMatrix_new (new API)
     // -------------------------------------------------------------------------
     OSQPCscMatrix* P_csc = OSQPCscMatrix_new(static_cast<OSQPInt>(n_vars),
                                              static_cast<OSQPInt>(n_vars),
@@ -347,10 +401,11 @@ Rcpp::List HuberQpC(
     // -------------------------------------------------------------------------
     OSQPSettings* settings = OSQPSettings_new();
     osqp_set_default_settings(settings);
-    settings->alpha = 1.6;
-    settings->verbose = 0;
-    settings->eps_abs = 1e-5;
-    settings->eps_rel = 1e-5;
+    //settings->alpha = 1.6;
+    //settings->verbose = 0;
+    settings->eps_abs = 1e-1;
+    settings->eps_rel = 1e-1;
+    settings->max_iter = 10000;
 
     // Solver
     OSQPSolver* solver = nullptr;
@@ -364,11 +419,14 @@ Rcpp::List HuberQpC(
                                   static_cast<OSQPInt>(n_vars),
                                   settings);
     if (exitflag) {
-        // free created objects
         if (solver) osqp_cleanup(solver);
         OSQPCscMatrix_free(A_csc);
         OSQPCscMatrix_free(P_csc);
         OSQPSettings_free(settings);
+	Rcpp::Rcerr << "OSQP error code: " << exitflag << "\n";
+	if (solver && solver->info) {
+	  Rcpp::Rcerr << "OSQP info: " << solver->info->status << "\n";
+	}
         Rcpp::stop("OSQP setup failed (exitflag != 0).");
     }
 
@@ -377,7 +435,6 @@ Rcpp::List HuberQpC(
     // -------------------------------------------------------------------------
     exitflag = osqp_solve(solver);
     if (exitflag) {
-        // cleanup and error
         osqp_cleanup(solver);
         OSQPCscMatrix_free(A_csc);
         OSQPCscMatrix_free(P_csc);
@@ -388,17 +445,15 @@ Rcpp::List HuberQpC(
     // -------------------------------------------------------------------------
     // Extract solution: solver->solution->x has length n_vars
     // -------------------------------------------------------------------------
-    arma::vec theta_new = arma::zeros(p);
+    arma::vec theta_new = arma::zeros<arma::vec>(p);
     if (solver && solver->solution && solver->info) {
-        // status is a char[32]
         if (std::strncmp(solver->info->status, "solved", 6) == 0) {
-            OSQPFloat* solx = solver->solution->x; // pointer to primal solution
+            OSQPFloat* solx = solver->solution->x;
             if (solx != nullptr) {
                 for (int i = 0; i < p; ++i) theta_new(i) = static_cast<double>(solx[i]);
             }
         } else {
             Rcpp::Rcerr << "OSQP did not solve the problem. Status: " << solver->info->status << std::endl;
-            // still try to extract x if available
             if (solver->solution && solver->solution->x) {
                 for (int i = 0; i < p; ++i) theta_new(i) = static_cast<double>(solver->solution->x[i]);
             }
@@ -408,37 +463,31 @@ Rcpp::List HuberQpC(
     }
 
     // -------------------------------------------------------------------------
-    // Cleanup: free OSQP structures (this does not free our std::vectors memory,
-    // which will be released automatically at scope exit)
+    // Cleanup: free OSQP structures (this does not free our std::vectors memory)
     // -------------------------------------------------------------------------
     osqp_cleanup(solver);
     OSQPCscMatrix_free(A_csc);
     OSQPCscMatrix_free(P_csc);
     OSQPSettings_free(settings);
 
-    // Prepare the output
-    // Compute Zt * W * Z using broadcasting
+    // Prepare the output (same as prima)
     arma::mat ZtW = Z.t() * (Z.each_col() % w);   // p x p
 
-    // Construct RHS: Zt * W
     arma::mat ZtW2 = Z.t();
     ZtW2.each_row() %= w.t();                     // p x n
 
-    // Matrix to invert: Xt W X + lambda H
-    arma::mat A = ZtW + H;
+    // Matrix to invert: Xt W X + lambda H  (qui H è già passato correttamente)
+    arma::mat Ainv = ZtW + H;
 
-    // Solve
-    arma::mat hat = Z * arma::solve(A, ZtW2, arma::solve_opts::likely_sympd); // arma::solve_opts::likely_sympd because the matrix is likely psd (for large lambdas) and this makes the code faster and stable
+    arma::mat hat = Z * arma::solve(Ainv, ZtW2, arma::solve_opts::likely_sympd);
 
-    // Residuals
     arma::vec fitted = Z * theta_new;
     arma::vec resid = Y - fitted;
 
-    // Hat values
     arma::vec hat_diag = hat.diag();
-  
+
     return Rcpp::List::create(Rcpp::Named("theta_hat") = theta_new,
-			      Rcpp::Named("resids") = resid,
-			      Rcpp::Named("hat_values") = hat_diag,
-			      Rcpp::Named("fitted") = fitted);
+                              Rcpp::Named("resids") = resid,
+                              Rcpp::Named("hat_values") = hat_diag,
+                              Rcpp::Named("fitted") = fitted);
 }

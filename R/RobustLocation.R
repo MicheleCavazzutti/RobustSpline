@@ -157,6 +157,8 @@ ts_preprocess_location = function(Y, tobs, r){
   A = Omega%*%Q
   H = matrix(0, nrow=p, ncol=p)
   H[1:(p-M),1:(p-M)] = t(Q)%*%A
+  ## NOTE: H is numerically not-symmetric (errors in the order 10^-10), but should be theoretically: therefore, I enforce symmetry
+  H <- 0.5 * (H + t(H))
   Z = cbind(Omega%*%Q, Phi) # matrix p-times-p
   Z = Z[inds,] # matrix m-times-p
   # Z = do.call("rbind", replicate(n, Z, simplify = FALSE)) # 
@@ -479,8 +481,8 @@ ts_location = function(Y, tobs, r, type,
   type = match.arg(type,c("square","absolute","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
-  if(method=="HuberQp" & type!="huber") 
-    stop("method 'HuberQp' available only for type 'huber'.")
+  if(method=="HuberQp" & type!="Huber") 
+    stop("method 'HuberQp' available only for type 'Huber'.")
   
   jcv = match.arg(jcv,c("all", "AIC", "GCV", "GCV(tr)", "BIC", "rGCV", 
                         "rGCV(tr)", "custom"))

@@ -471,7 +471,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     uvec <- rep(Inf, ncons)
     
     # Solve QP using osqp (This is already a C++ routine)
-    settings <- osqpSettings(verbose = FALSE)
+    settings <- osqpSettings(verbose = TRUE, max_iter = 10000,eps_abs = 1e-1, eps_rel = 1e-1)
     model <- osqp(P = P, q = qvec, A = A, l = lvec, u = uvec, pars = settings)
     sol <- model$Solve()
     
