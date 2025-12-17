@@ -491,3 +491,127 @@ Rcpp::List HuberQpC(
                               Rcpp::Named("hat_values") = hat_diag,
                               Rcpp::Named("fitted") = fitted);
 }
+
+// [[Rcpp::export()]]
+Rcpp::List QuantileQpC(
+    const arma::mat Z,
+    const arma::vec Y,
+    const arma::mat H,
+    const arma::vec w,
+    double alpha = 0.5,
+    double lambda = 1.0
+) {
+    int m_star = (int) Z.n_rows;
+    int p = (int) Z.n_cols;
+
+    int n_vars = p + 2 * m_star;   // beta (p), u (m_star), v (m_star)
+    int n_cons = 3 * m_star;       // m_star (equality) + 2*m_star (positivity)
+
+    // -------------------------------------------------------------------------
+    // 1. P construction (Quadratic term)
+    // -------------------------------------------------------------------------
+    // Note: we need to multiply by 2 to deal with the osqp notation
+    arma::mat P_theta = 2.0 * lambda * H;
+    arma::sp_mat Psp = make_block_P_sp(P_theta, p, m_star, 1e-12); 
+
+    // -------------------------------------------------------------------------
+    // 2. q vector (Linear term)
+    // q = [0_p, alpha * w, (1 - alpha) * w]
+    // -------------------------------------------------------------------------
+    arma::vec qvec = arma::zeros<arma::vec>(n_vars);
+    for (int i = 0; i < m_star; ++i) {
+        qvec(p + i) = alpha * w(i);              // pesi per u
+        qvec(p + m_star + i) = (1.0 - alpha) * w(i); // pesi per v
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. A construction (limits)
+    // A = [ Z ,  I , -I ]  -> equalities (Z*theta + u - v = Y)
+    //     [ 0 ,  I ,  0 ]  -> u >= 0
+    //     [ 0 ,  0 ,  I ]  -> v >= 0
+    // -------------------------------------------------------------------------
+    arma::mat Amat = arma::zeros<arma::mat>(n_cons, n_vars);
+    arma::vec lvec = arma::zeros<arma::vec>(n_cons);
+    arma::vec uvec = arma::zeros<arma::vec>(n_cons);
+
+    for (int i = 0; i < m_star; ++i) {
+        // Limit 1: Z*theta + u - v = Y
+        Amat.submat(i, 0, i, p - 1) = Z.row(i);
+        Amat(i, p + i) = 1.0;
+        Amat(i, p + m_star + i) = -1.0;
+        lvec(i) = Y(i);
+        uvec(i) = Y(i);
+
+        // Limit 2: u >= 0
+        Amat(m_star + i, p + i) = 1.0;
+        lvec(m_star + i) = 0.0;
+        uvec(m_star + i) = OSQP_INFTY;
+
+        // Vincolo 3: v >= 0
+        Amat(2 * m_star + i, p + m_star + i) = 1.0;
+        lvec(2 * m_star + i) = 0.0;
+        uvec(2 * m_star + i) = OSQP_INFTY;
+    }
+
+    arma::sp_mat Asp = make_A_sp(Amat);
+
+    // -------------------------------------------------------------------------
+    // 4. Conversion to CSC and OSQP Setup
+    // -------------------------------------------------------------------------
+    std::vector<OSQPFloat> Px, Ax, q_osqp, l_osqp, u_osqp;
+    std::vector<OSQPInt> Pi, Pp, Ai, Ap;
+
+    spmat_to_csc_vectors(Psp, Px, Pi, Pp);
+    spmat_to_csc_vectors(Asp, Ax, Ai, Ap);
+
+    q_osqp.assign(qvec.begin(), qvec.end());
+    l_osqp.assign(lvec.begin(), lvec.end());
+    u_osqp.assign(uvec.begin(), uvec.end());
+
+    OSQPCscMatrix* P_csc = OSQPCscMatrix_new(n_vars, n_vars, Px.size(), Px.data(), Pi.data(), Pp.data());
+    OSQPCscMatrix* A_csc = OSQPCscMatrix_new(n_cons, n_vars, Ax.size(), Ax.data(), Ai.data(), Ap.data());
+
+    OSQPSettings* settings = OSQPSettings_new();
+    osqp_set_default_settings(settings);
+    settings->eps_abs = 1e-2;
+    settings->eps_rel = 1e-2;
+    settings->max_iter = 10000;
+    settings->verbose = 0;
+
+    OSQPSolver* solver = nullptr;
+    osqp_setup(&solver, P_csc, q_osqp.data(), A_csc, l_osqp.data(), u_osqp.data(), n_cons, n_vars, settings);
+
+    // -------------------------------------------------------------------------
+    // 5. Solution and results extraction
+    // -------------------------------------------------------------------------
+    osqp_solve(solver);
+    
+    arma::vec theta_hat = arma::zeros<arma::vec>(p);
+    if (solver->solution) {
+        for (int i = 0; i < p; ++i) theta_hat(i) = solver->solution->x[i];
+    }
+
+    // Cleanup
+    osqp_cleanup(solver);
+    OSQPCscMatrix_free(A_csc);
+    OSQPCscMatrix_free(P_csc);
+    OSQPSettings_free(settings);
+
+    // -------------------------------------------------------------------------
+    // 6. Hat Matrix (Diagonal)
+    // -------------------------------------------------------------------------
+    arma::mat W = arma::diagmat(w);
+    arma::mat M = Z.t() * W * Z + lambda * H;
+    arma::mat B = arma::solve(M, Z.t());
+    arma::vec hat_diag = arma::sum(Z.t() % B, 0).t() % w;
+
+    arma::vec fitted = Z * theta_hat;
+    arma::vec resid = Y - fitted;
+
+    return Rcpp::List::create(
+        Rcpp::Named("theta_hat") = theta_hat,
+        Rcpp::Named("resids") = resid,
+        Rcpp::Named("hat_values") = hat_diag,
+        Rcpp::Named("fitted") = fitted
+    );
+}

@@ -504,6 +504,166 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   if(vrs=="R") return(huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H, w))
 }
 
+#' Fast Regression with Quantile (and absolute) Penalty - Quadratic programming solution
+#'
+#' A Quantile regression estimator with a specified penalty matrix
+#' in a linear functional regression model. The solution corresponds to the 
+#' result of function \link{IRLS} with \code{type="Quantile"} or \code{type="Absolute"} if \code{"alpha"} is 0.5.
+#'
+#' @param Z Data matrix of dimension \code{m_{\star}}-times-\code{p}, where \code{m_{\star}} is
+#' the total number of observations, \code{p} is the dimension of \code{theta}.
+#'
+#' @param Y Vector of total responses of length \code{m_{\star}}=\sum_{i=1}^{\code{n}}(\code{m_i}).
+#'
+#' @param lambda Tuning parameter, a non-negative real number.
+#'
+#' @param H Penalty matrix of size \code{p}-times-\code{p} that
+#' is used inside the quadratic term for penalizing estimated parameters.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
+#' 
+#' @param w Vector of length \code{m_star} of weights attached to the elements of 
+#' \code{Y}. If \code{w=NULL} (default), a constant vector with values 
+#' \code{1/n} is used.
+#' 
+#' @param vrs Version of the algorithm to be used. The program is prepared in
+#' two versions: i) \code{vrs="C"} calls the \code{C++} version of the 
+#' algorithm, programmed within the \code{RCppArmadillo} framework for
+#' manipulating matrices. This is typically the fastest version, especially if p >> n. 
+#' ii) \code{vrs="R"} calls the \code{R} version. The two versions may 
+#' give slightly different results due to the different tolerances used for the solution
+#' of the quadratic problem.
+#'
+#' @param toler_solve Unused at the moment
+#'
+#' @details This function is equivalent with 
+#' \link{IRLS} when used with the loss \code{type="Absolute"} if \code{alpha} = 1/2 and  \code{type="Quantile"} otherwise,
+#'  but faster and more stable as it does not perform the iterative algorithm. Note that this function
+#' is faster than \link{IRLS} only if the number of predictors p is larger than the number of functional observations m_{\star}.
+#' On the contrary, if m_{\star} > p, \link{IRLS} is faster, even though less accurate. When p > m_{\star}, the  \code{vrs="C"} version is
+#' faster than the  \code{vrs="R"} one.
+#'
+#' @return A list composed of:
+#' \itemize{
+#'  \item{"theta_hat"}{ A numerical matrix of size \code{p}-times-\code{1} of 
+#'  estimated regression coefficients.}
+#'  \item{"resids"}{ A numerical vecotor of length \code{m_{\star} containing the final
+#'  set of residuals in the fit of \code{Y} on \code{Z}.}
+#'  \item{"hat_values"}{ Diagonal terms of the (penalized) hat matrix of
+#'  the form \code{Z*solve(t(Z)*Z + m_{\star}*lambda*H)*t(Z)}.}
+#'  \item{"fitted"}{ Fitted values in the model. A vector of length \code{m_{\star}} 
+#'  correponding to the fits of \code{Y}.}
+#' }
+#' 
+#' @seealso \link{IRLS} for an iterative version of this
+#' function.
+#'
+#'
+#' @examples
+#' n = 50      # sample size
+#' p = 10      # dimension of predictors
+#' Z = matrix(rnorm(n*p),ncol=p) # design matrix m_{\star} x p 
+#' Y = Z[,1]   # response vector
+#' lambda = 1  # tuning parameter for penalization
+#' H = diag(p) # penalty matrix
+#' 
+#' res_C = QuantileQp(Z, Y, lambda, H, vrs="C")
+#' res_R = QuantileQp(Z, Y, lambda, H, vrs="R")
+#' # Check the maximum absolute difference between the results
+#' max(abs(res_C$theta_hat-res_R$theta_hat))
+#' # Visualize the difference between the results
+#' plot(res_C$theta_hat ~ res_R$theta_hat)
+#' 
+#' # Compare the output with function IRLS
+#' res_IRLS = IRLS(Z, Y, lambda, H, type="Quantile")
+#' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+
+QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solve=1e-35){
+  m_star = length(Y)
+  if(is.null(w)) w = rep(1/m_star,m_star) # true weight
+  vrs = match.arg(vrs,c("C","R"))
+  if(nrow(Z)!=length(Y)) 
+    stop("Number of rows of Z must equal the lenght of Y.")
+  if(nrow(H)!=ncol(Z))
+    stop("H must be a square matrix with the same number of columns as Z.")
+  if(ncol(H)!=ncol(Z))
+    stop("H must be a square matrix with the same number of columns as Z.")
+  if(lambda<0) stop("lambda must be a non-negative number.")
+  
+  ### Solve the problem (C++ version)
+  if(vrs=="C"){
+    stop("C version not implemented yet!")
+    return(QuantileQpC(Z, Y, lambda, H, w, alpha))
+  }
+  
+  quantile_qp_osqp_penalized <- function(Z, Y, lambda, H, w, alpha) {
+    # Input validation
+    if (!is.matrix(Z)) stop("Z must be a matrix")
+    if (!is.vector(Y)) stop("Y must be a vector")
+    if (any(is.na(Z)) || any(is.na(Y))) stop("Z and Y must not contain NA values")
+    m_star <- nrow(Z)
+    p <- ncol(Z)
+    if (length(Y) != m_star) stop("Length of Y must equal number of rows in Z")
+    if (!is.matrix(H)) stop("H must be a matrix")
+    if (nrow(H) != p || ncol(H) != p) stop("H must be p x p, where p is ncol(Z)")
+    if (!isSymmetric(H)) stop("H must be symmetric")
+    
+    nvars <- p + 2 * m_star  # variables: beta (p), a (m_star), t (m_star)
+    ncons <- 3 * m_star      # constraints: m_star for u_ij - v_ij == y_ij - Z_ij %*% theta, m_star for u_ij and v_ij >= 0
+    
+    # Quadratic term: P as sparse block-diagonal. Note that only the upper left block of size p x p is non null (2*lambda*H), while the diagonals are needed just for numerical stability 
+    P <- bdiag(2 * lambda * H + 1e-12 * Diagonal(p), 
+               Diagonal(2 * m_star, 1e-12))
+    P <- as(P, "dgCMatrix")
+    
+    # Linear term: qvec = delta for t_i's
+    qvec <- rep(0, nvars)   # linear part doesn't operate on theta
+    qvec[(p + 1):(p+m_star)] <- alpha * w # u variables are positive errors: alpha scale in loss
+    qvec[(p + m_star + 1):(p+m_star+m_star)] <- (1-alpha) * w # v variables are negative errors: 1 - alpha scale in loss
+    
+    # Constraints A matrix
+    In <- Diagonal(m_star)
+    Zero_p <- sparseMatrix(i = integer(0), j = integer(0), x = numeric(0), dims = c(m_star, p))
+    
+    A <- rbind(
+      cbind(as(Z, "dgCMatrix"), In, -In), # Equality
+      cbind(Zero_p, In, Diagonal(m_star, 0, x=0)), # only u
+      cbind(Zero_p, Diagonal(m_star, 0, x=0), In)  # only v
+    )
+    
+    # Set constraint bounds
+    lvec <- c(Y, rep(0, m_star), rep(0, m_star))
+    hvec <- c(Y, rep(Inf, m_star), rep(Inf, m_star))
+    
+    # Solve QP using osqp (This is already a C++ routine)
+    settings <- osqpSettings(verbose = TRUE, max_iter = 10000,eps_abs = 1e-2, eps_rel = 1e-2)
+    model <- osqp(P = P, q = qvec, A = A, l = lvec, u = hvec, pars = settings)
+    sol <- model$Solve()
+    
+    # Extract theta
+    theta <- sol$x[1:p]
+    
+    # Compute Hat matrix diagonal elements
+    M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
+    B <- solve(M, t(Z)) 
+    hat_diag <- colSums(t(Z) * B) * w
+    
+    # Compute residuals
+    fitted = as.numeric(Z%*%theta)
+    resid = Y - fitted
+    
+    return(list(theta_hat = theta,
+                resids = resid,
+                hat_values = hat_diag,
+                fitted = fitted))
+  }
+  
+  ### Solve using the R version (relies on the C++ oqsp routine)
+  if(vrs=="R") return(quantile_qp_osqp_penalized(Z, Y, lambda, H, w, alpha))
+}
+
 #' Weight function for the IRLS algorithm
 #'
 #' Returns a vector of weights given by \code{psi(t)/(2*t)}, where 
@@ -580,11 +740,12 @@ psiw = function(t,type,alpha=1/2,tuning=NULL){
 #'
 #' @examples
 #' curve(rho(x,type="absolute"),-5,5) # absolute loss with tuning
+#' curve(rho(x,type="quantile", alpha = 0.1),-5,5) # quantile loss 
 #' curve(rho(x,type="square"),-5,5) # square loss
 #' curve(rho(x,type="Huber"),-5,5) # Huber loss
 #' curve(rho(x,type="logistic"),-5,5) # logistic loss
 
-rho = function(t,type,tuning=1.345){          # loss function
+rho = function(t,type,alpha=1/2,tuning=1.345){ # loss function
   type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
   if(tuning<0) stop("tuning must be a non-negative number.")
   if(type=="absolute") return(t*(1/2-(t<0)))

@@ -138,6 +138,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// QuantileQpC
+Rcpp::List QuantileQpC(const arma::mat Z, const arma::vec Y, const arma::mat H, const arma::vec w, double alpha, double lambda);
+RcppExport SEXP _RobustSpline_QuantileQpC(SEXP ZSEXP, SEXP YSEXP, SEXP HSEXP, SEXP wSEXP, SEXP alphaSEXP, SEXP lambdaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::vec >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const arma::vec >::type w(wSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
+    rcpp_result_gen = Rcpp::wrap(QuantileQpC(Z, Y, H, w, alpha, lambda));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_RobustSpline_distn", (DL_FUNC) &_RobustSpline_distn, 3},
@@ -148,6 +164,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_RobustSpline_IRLSCmult", (DL_FUNC) &_RobustSpline_IRLSCmult, 11},
     {"_RobustSpline_ridgeC", (DL_FUNC) &_RobustSpline_ridgeC, 5},
     {"_RobustSpline_HuberQpC", (DL_FUNC) &_RobustSpline_HuberQpC, 5},
+    {"_RobustSpline_QuantileQpC", (DL_FUNC) &_RobustSpline_QuantileQpC, 6},
     {NULL, NULL, 0}
 };
 

@@ -33,3 +33,7 @@ HuberQpC <- function(Z, Y, H, w, delta = 1.345) {
     .Call(`_RobustSpline_HuberQpC`, Z, Y, H, w, delta)
 }
 
+QuantileQpC <- function(Z, Y, H, w, alpha = 0.5, lambda = 1.0) {
+    .Call(`_RobustSpline_QuantileQpC`, Z, Y, H, w, alpha, lambda)
+}
+

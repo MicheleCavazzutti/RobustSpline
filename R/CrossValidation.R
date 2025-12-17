@@ -211,6 +211,8 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
     stop("method 'HuberQp' available only for type 'Huber'.")
+  if(method=="QuantileQp" & (type!="quantile"|type!="absolute")) 
+    stop("method 'QuantileQp' available only for type 'quantile' or 'absolute'.")
   
   # Generalized cross-validation
   ncv = 6
@@ -218,7 +220,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
   vrs = match.arg(vrs, c("C", "R"))
   
   if(method=="IRLS"){
-    fit.r <- IRLS(Z, Y, lambda, H, type=type, w=w, vrs=vrs, 
+    fit.r <- IRLS(Z, Y, lambda, H, type=type, alpha=alpha, w=w, vrs=vrs, 
                   resids.in = resids.in,
                   toler=toler, imax=imax)
     GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,
@@ -232,6 +234,11 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
   }
   if(method=="HuberQp"){
     fit.r <- HuberQp(Z, Y, lambda, H, w=w, vrs=vrs)
+    GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,custfun=custfun)
+    return(c(GCV.scores, 1, 0))
+  }
+  if(method=="QuantileQp"){
+    fit.r <- QuantileQp(Z, Y, lambda, H, alpha=alpha, w=w, vrs=vrs)
     GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,custfun=custfun)
     return(c(GCV.scores, 1, 0))
   }
@@ -383,6 +390,86 @@ GCV_HuberQp <- function(lambda, Z, Y, H, vrs="C", custfun=NULL){
   # Generalized cross-validation for ridge
   vrs = match.arg(vrs, c("C", "R"))
   fit.r <- HuberQp(Z,Y,lambda,H,vrs=vrs)
+  GCV.scores <- GCV_crit(fit.r$resids, fit.r$hat_values, custfun=custfun)
+  return(GCV.scores)
+}
+
+#' Cross-validation for Quantile Regression
+#'
+#' Provides the cross-validation indices from \link{GCV_crit} in
+#' conjunction with the \link{QuantileQp} function directly as an argument of the
+#' parameter \code{lambda}. 
+#'
+#' @param lambda A candidate parameter value; non-negative real number.
+#'
+#' @param Z Data matrix of dimension \code{n}-times-\code{p}, where \code{n} is
+#' the number of observations, \code{p} is the dimension.
+#'
+#' @param Y Vector of responses of length \code{n}.
+#'
+#' @param H Penalty matrix of size \code{p}-times-\code{p} that
+#' is used inside the quadratic term for penalizing estimated parameters.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
+#' 
+#' @param vrs Version of the algorithm to be used in function \link{QuantileQp}; 
+#' either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the 
+#' \code{R} version. Both should give (nearly) identical results, see 
+#' \link{QuantileQp}.
+#'
+#' @param custfun A custom function combining the residuals \code{resids}, the 
+#' hat values \code{hats}. The result of the function must be numeric, see
+#' \link{GCV_crit}.
+#'
+#' @details Function \code{custfun} has two arguments 
+#' corresponding to \code{resids} and \code{hats}. The output of the function 
+#' must be numeric. Additional parameters passed to \code{HuberQp} may be passed
+#' to the function.
+#'
+#' @return A named numerical vector of values. The length of the vector depends
+#' on the input. The vector contains the values:
+#' \itemize{
+#'  \item{"AIC"}{ Akaike's information criterion given by 
+#'  \code{mean(resids^2)+log(n)*mean(hats)}, where \code{n} is the length of
+#'  both \code{resids} and \code{hats}.}
+#'  \item{"GCV"}{ Leave-one-out cross-validation criterion given by
+#'  \code{mean((resids^2)/((1-hats)^2))}.}
+#'  \item{"GCV(tr)"}{ Modified leave-one-out cross-validation criterion 
+#'  given by \code{mean((resids^2)/((1-mean(hats))^2))}.}
+#'  \item{"BIC"}{ Bayes information criterion given by 
+#'  \code{mean(resids^2)+2*mean(hats)}.}
+#'  \item{"rGCV"}{ A robust version of \code{GCV} where mean is replaced
+#'  by a robust M-estimator of scale of \code{resids/(1-hats)}, see 
+#'  \link[robustbase]{scaleTau2} for details.}
+#'  \item{"rGCV(tr)"}{ Modified version of a \code{rGCV} given by 
+#'  a robust M-estimator of scale of \code{resids/(1-mean(hats))}.}
+#'  \item{"custom"}{ The custom criterion given by function \code{custfun}. 
+#'  Works only if \code{custfun} is part of the input.}
+#' }
+#'
+#' @examples
+#' n = 50      # sample size
+#' p = 10      # dimension of predictors
+#' Z = matrix(rnorm(n*p),ncol=p) # design matrix
+#' Y = Z[,1]   # response vector
+#' lambda = 1  # tuning parameter for penalization
+#' H = diag(p) # penalty matrix
+#' alpha=1/2
+#'     
+#' # Run with the ridge function
+#' res = QuantileQp(Z, Y, lambda, H, alpha=alpha)
+#' with(res,GCV_crit(resids,hat_values))
+#' with(res,GCV_crit(resids,hat_values,custfun = function(r,h) 
+#'     sum((r/(1-h))^2)))
+#'     
+#' GCV_QuantileQp(lambda,Z,Y,H,alpha=alpha,custfun = function(r,h) sum((r/(1-h))^2))
+
+GCV_QuantileQp <- function(lambda, Z, Y, H, alpha=1/2, vrs="C", custfun=NULL){
+  # Generalized cross-validation for ridge
+  vrs = match.arg(vrs, c("C", "R"))
+  fit.r <- QuantileQp(Z,Y,lambda,H,alpha=alpha,vrs=vrs)
   GCV.scores <- GCV_crit(fit.r$resids, fit.r$hat_values, custfun=custfun)
   return(GCV.scores)
 }

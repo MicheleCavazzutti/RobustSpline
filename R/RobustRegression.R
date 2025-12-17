@@ -1046,3 +1046,253 @@ ts_HuberQp = function(X, Y, tobs, m, jcv = "all", vrs="C",
                 resids = resids))
   }
 }
+
+#' Quantile (absolute) Thin-plate splines regression
+#'
+#' Fits a robust thin-plates spline in a scalar-on-function 
+#' regression problem with discretely observed predictors. The tuning parameter
+#' \code{lambda} is selected using a specified cross-validation criterion.
+#'
+#' @param X Matrix of observed values of \code{X} of size 
+#'  \code{n}-times-{p}, one row per observation, columns corresponding to the 
+#'  positions in the rows of \code{tobs}.
+#'
+#' @param Y Vector of responses of length \code{n}.
+#'  
+#' @param tobs Domain locations for the observed points of \code{X}. Matrix
+#'  of size \code{p}-times-\code{d}, one row per domain point.
+#' 
+#' @param m Order of the thin-plate spline, positive integer.
+#'
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
+#'
+#' @param jcv A numerical indicator of the cross-validation method used to 
+#' select the tuning parameter \code{lambda}. The criteria are always 
+#' based on the residuals (\code{resids}) and hat values (\code{hats}) in
+#' the fitted models. Possible values are:
+#' \itemize{
+#'  \item{"all"}{ All the criteria below are considered.}
+#'  \item{"AIC"}{ Akaike's information criterion given by 
+#'  \code{mean(resids^2)+log(n)*mean(hats)}, where \code{n} is the length of
+#'  both \code{resids} and \code{hats}.}
+#'  \item{"GCV"}{ Leave-one-out cross-validation criterion given by
+#'  \code{mean((resids^2)/((1-hats)^2))}.}
+#'  \item{"GCV(tr)"}{ Modified leave-one-out cross-validation criterion 
+#'  given by \code{mean((resids^2)/((1-mean(hats))^2))}.}
+#'  \item{"BIC"}{ Bayes information criterion given by 
+#'  \code{mean(resids^2)+2*mean(hats)}.}
+#'  \item{"rGCV"}{ A robust version of \code{GCV} where mean is replaced
+#'  by a robust M-estimator of scale of \code{resids/(1-hats)}, see 
+#'  \link[robustbase]{scaleTau2} for details.}
+#'  \item{"rGCV(tr)"}{ Modified version of a \code{rGCV} given by 
+#'  a robust M-estimator of scale of \code{resids/(1-mean(hats))}.}
+#'  \item{"custom"}{ The custom criterion given by function \code{custfun}. 
+#'  Works only if \code{custfun} is part of the input.}
+#'  }
+#'  
+#' @param vrs Version of the algorithm to be used in function \link{QuantileQp}; 
+#' either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the 
+#' \code{R} version. Both should give identical results, but the C++ version is (slightly) faster when finer discretizations are used.
+#' See \link{QuantileQp} for further details.
+#' 
+#' @param plotCV Indicator of whether a plot of the evaluated cross-validation 
+#' criteria as a function of \code{lambda} should be given.
+#' 
+#' @param lambda_grid An optional grid for select \code{lambda} from. By default
+#' this is set to be an exponential of a grid of 51 equidistant values
+#' in the interval from -28 to -1. 
+#'
+#' @param custfun A custom function combining the residuals \code{resids} and
+#' the hat values \code{hats}. The result of the function must be numeric, see 
+#' \link{GCV_crit}.
+#' 
+#' @param int_weights Indicator whether the integrals functions are to be 
+#' approximated only as a mean of function values (\code{int_weights=FALSE}), or
+#' whether they should be computed as weighted sums of function values 
+#' (\code{int_weights=TRUE}). In the latter case, weights are computed as
+#' proportional to the respective areas of the Voronoi tesselation of the domain
+#' \code{I} (works for dimension \code{d==1} or \code{d==2}). For dimension 
+#' \code{d==1}, this is equivalent to the length of intervals associated 
+#' to adjacent observation points. For \code{d>2}, no weighting is performed.
+#' 
+#' @param I.method Applicable only if \code{int_weights==TRUE}. 
+#' Input method for the complete domain \code{I}
+#' where the Voronoi tesselation for obtaining the weights is evaluated. 
+#' Takes a value \code{"box"}
+#' for \code{I} the smallest axes-aligned box in the domain, or \code{"chull"}
+#' for \code{I} being a convex hull of points in the domain. By default set to 
+#' \code{"chull"}. In dimension \code{d=1}, the two methods \code{"box"}
+#' and \code{"chull"} are equivalent.
+#' 
+#' @param I Applicable only if \code{int_weights==TRUE}. A set of points 
+#' specifying the complete domain \code{I} of the functional data.
+#' In general, can be a \code{q}-times-\code{d} matrix, where \code{q}
+#' is the number of points and \code{d} is the dimension. The matrix \code{I}
+#' then specifies the point from which to compute the domain \code{I}: 
+#' (a) If \code{method.I=="chull"}, the domain is the convex hull of \code{I}; 
+#' (b) If \code{method.I=="box"}, the domain is the smallest axes-aligned box
+#' that contains \code{I}. If \code{I} is \code{NULL} (by default), then 
+#' \code{I} is taken to be the same as \code{x}. If \code{I.method=="box"}, 
+#' \code{I} can be specified also by a pair of real values \code{a<b}, 
+#' in which case we take \code{I} to be the axis-aligned sqare \code{[a,b]^d}.
+#' 
+#' @details Function gives a faster (non-iterative) version of the solution
+#' of \link{ts_reg} when \code{type="Huber"} is used. This corresponds to 
+#' the Huber version of an estimator.
+#'
+#' @return The output differs depending whether \code{jcv="all"} or 
+#' not. If a specific cross-validation method is selected (that is, 
+#' \code{jcv} is not \code{"all"}), a list is returned:
+#'  \itemize{
+#'  \item{"lambda"}{ The selected tuning parameter \code{lambda} that minimizes
+#'  the chosen cross-validation criterion.}
+#'  \item{"fitted"}{ A vector of \code{n} fitted values using the tuning 
+#'  parameter \code{lambda}.}
+#'  \item{"theta_hat"}{ A numerical matrix of size \code{p+1}-times-\code{1} of 
+#'  estimated regression coefficients from \link{HuberQp}.}
+#'  \item{"beta_hat"}{ Estimate of the regression function \code{beta0} 
+#'  evaluated at the \code{p} points from \code{tobs}, where \code{X} was
+#'  observed.}
+#'  \item{"alpha_hat"}{ Estimate of \code{alpha0}, a numerical value.}
+#'  \item{"hat_values"}{ Diagonal terms of the (possibly penalized) hat 
+#'  matrix of the form \code{Z*solve(t(Z)*W*Z+n*lambda*H)*t(Z)*W}, 
+#'  where \code{W} is the diagonal weight matrix in the final iteration 
+#'  of \link{IRLS}.}
+#' }
+#' In case when \code{jcv="all"}, all these values are given for each 
+#' cross-validation method considered. For \code{lambda} and \code{alpha_hat},
+#' provides a list of length 6 or 7 (depending on 
+#' whether \code{custfun} is specified); for \code{fitted}, \code{beta_hat},
+#' and \code{hat_values} it gives a matrix with 6 or 7 
+#' columns, each corresponding to one cross-validation method. 
+#'
+#' @seealso \link{ts_reg} for an iterative version of this method.
+#'
+#' @references
+#' Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 
+#' with discretely sampled predictors. 
+#' \emph{Computational Statistics and Data Analysis}, to appear.
+#'
+#' @examples
+#' n = 50      # sample size
+#' p = 10      # dimension of predictors
+#' X = matrix(rnorm(n*p),ncol=p) # design matrix
+#' Y = X[,1]   # response vector
+#' tobs = matrix(sort(runif(p)),ncol=1)
+#' 
+#' res = ts_HuberQp(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
+
+ts_QuantileQp = function(X, Y, tobs, m, alpha = 1/2, jcv = "all", vrs="C", 
+                      plotCV=FALSE, lambda_grid=NULL,
+                      custfun=NULL, int_weights=TRUE, 
+                      I.method = "chull", I=NULL){
+  jcv = match.arg(jcv,c("all", "AIC", "GCV", "GCV(tr)", "BIC", "rGCV", 
+                        "rGCV(tr)", "custom"))
+  if(jcv=="all") jcv = 0
+  if(jcv=="AIC") jcv = 1
+  if(jcv=="GCV") jcv = 2
+  if(jcv=="GCV(tr)") jcv = 3
+  if(jcv=="BIC") jcv = 4
+  if(jcv=="rGCV") jcv = 5
+  if(jcv=="rGCV(tr)") jcv = 6
+  if(jcv=="custom") jcv = 7
+  if(jcv==7 & is.null(custfun)) stop("With custom cross-validation, 
+                                    cusfun must be provided.")
+  
+  # pre-processing for thin-plate splines
+  tspr = ts_preprocess(X,tobs,m, int_weights=int_weights, 
+                       I.method = I.method, I = I)
+  # attach(tspr)
+  Z = tspr$Z; H = tspr$H; Q = tspr$Q; Omega = tspr$Omega; Phi = tspr$Phi;
+  degs = tspr$degs; M = tspr$M; m = tspr$m; p = tspr$p; d = tspr$d; n = tspr$n;
+  
+  if(is.null(lambda_grid)){
+    # define grid for search for lambda
+    rho1 = -5  # search range minimium exp(rho1)
+    rho2 = -1   # search range maximum exp(rho2)
+    lambda_length = 10
+    lambda_grid = exp(seq(rho1,rho2,length=lambda_length-1))
+  } else {
+    if(!is.numeric(lambda_grid)) 
+      stop("Grid for lambda values must contain numeric values.")
+    if(any(lambda_grid<0)) 
+      stop("Grid for lambda values must contain non-negative 
+           values.")
+    lambda_length = length(lambda_grid)
+  }
+  GCVfull <- Vectorize(
+    function(x) GCV_QuantileQp(x,
+                            Z = Z, Y = Y, H = H, alpha=alpha, vrs=vrs,
+                            custfun = custfun))(lambda_grid)
+  ncv = nrow(GCVfull)
+  cvnames = c("AIC","GCV","GCV(tr)","BIC","rGCV","rGCV(tr)",
+              "custom")
+  if(jcv==0) rownames(GCVfull) = cvnames[1:ncv]  
+  
+  if(plotCV){
+    if(jcv == 0){
+      par(mfrow=c(3,2))
+      for(i in 1:ncv){
+        plot(log(GCVfull[i,])~log(lambda_grid),type="l",
+             lwd=2,
+             xlab=expression(log(lambda)),
+             ylab="CV criterion",
+             main=rownames(GCVfull)[i])
+        # abline(h=log(GCVfull[i,1]),lty=2)
+        abline(v=log(lambda_grid[which.min(GCVfull[i,])]),lty=2)
+      }
+      par(mfrow=c(1,1))  
+    } else {
+      plot(log(GCVfull[jcv,])~log(lambda_grid),type="l",
+           lwd=2, xlab=expression(log(lambda)),
+           ylab="CV criterion",
+           main = cvnames[jcv])
+      # abline(h=log(GCVfull[jcv,1]),lty=2)
+      abline(v=log(lambda_grid[which.min(GCVfull[jcv,])]),lty=2)
+    }
+  }
+  lopt = lambda_grid[apply(GCVfull,1,which.min)]
+  
+  if(jcv>0){
+    lambda = lopt[jcv] # lambda parameter selected
+    #
+    res = QuantileQp(Z,Y,lambda,H,alpha=alpha,vrs=vrs)
+    res_ts = transform_theta(res$theta_hat,tspr)
+    return(list(lambda = lambda,
+                fitted = res$fitted, 
+                theta_hat = res$theta_hat,
+                beta_hat = res_ts$beta_hat, 
+                alpha_hat = (res$theta_hat)[1],
+                hat_values = res$hat_values,
+                resids = res$resids))
+  } else {
+    n = length(Y)
+    fitted = matrix(nrow=n,ncol=ncv)
+    thetahat = matrix(nrow=nrow(tobs)+1, ncol=ncv)
+    betahat = matrix(nrow=nrow(tobs), ncol=ncv)
+    alphahat = rep(NA,ncv)
+    hatvals = matrix(nrow=n, ncol=ncv)
+    resids = matrix(nrow=n, ncol=ncv)
+    for(jcv in 1:ncv){
+      lambda = lopt[jcv] # lambda parameter selected
+      #
+      res = QuantileQp(Z,Y,lambda,H,alpha=alpha,vrs=vrs)
+      res_ts = transform_theta(res$theta_hat,tspr)
+      fitted[,jcv] = res$fitted
+      thetahat[,jcv] = res$theta_hat
+      betahat[,jcv] = res_ts$beta_hat
+      alphahat[jcv] = (res$theta_hat)[1]
+      hatvals[,jcv] = res$hat_values
+      resids[,jcv] = res$resids
+    }
+    return(list(lambda = lopt,
+                fitted = fitted,
+                theta_hat = thetahat,
+                beta_hat = betahat,
+                alpha_hat = alphahat,
+                hat_values = hatvals,
+                resids = resids))
+  }
+}

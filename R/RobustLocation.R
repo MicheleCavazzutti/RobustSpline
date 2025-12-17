@@ -483,12 +483,14 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
                        tolerGCV=toler, imaxGCV=imax,
                        echo = FALSE){
   
-  method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
+  method = match.arg(method,c("IRLS", "ridge", "HuberQp", "QuantileQp"))
   type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
     stop("method 'HuberQp' available only for type 'Huber'.")
+  if(method=="QuantileQp" & (type!="quantile"|type!="absolute" )) 
+    stop("method 'QuantileQp' available only for type 'quantile' or 'absolute'.")
   
   jcv = match.arg(jcv,c("all", "AIC", "GCV", "GCV(tr)", "BIC", "rGCV", 
                         "rGCV(tr)", "custom"))
@@ -514,10 +516,10 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
   
   if(is.null(lambda_grid)){
     # define grid for search for lambda
-    rho1 = -28  # search range minimium exp(rho1)
+    rho1 = -5  # search range minimium exp(rho1)
     rho2 = -1   # search range maximum exp(rho2)
-    if(is.null(lambda_length)) lambda_length = 51
-    lambda_grid = exp(c(-Inf,seq(rho1,rho2,length=lambda_length-1)))
+    if(is.null(lambda_length)) lambda_length = 10
+    lambda_grid = exp(seq(rho1,rho2,length=lambda_length-1))
   } else {
     if(!is.numeric(lambda_grid)) 
       stop("Grid for lambda values must contain numeric values.")
@@ -584,6 +586,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
       res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
     if(method=="HuberQp")
       res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
+    if(method=="QuantileQp")
+      res = QuantileQp(Z,Y,lambda,H,alpha = alpha,w=w,vrs=vrs)
     res_ts = transform_theta_location(res$theta_hat,tspr)
     if(method=="IRLS") return(
       list(lambda = lambda,
@@ -614,6 +618,15 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
            gamma_hat = res_ts$gamma_hat,
            delta_hat = res_ts$delta_hat,
            hat_values = res$hat_values))
+    if(method=="QuantileQp") return(
+      list(lambda = lambda,
+           fitted = res$fitted, 
+           residuals = Y-res$fitted,
+           theta_hat = res$theta_hat,
+           beta_hat = res_ts$beta_hat,
+           gamma_hat = res_ts$gamma_hat,
+           delta_hat = res_ts$delta_hat,
+           hat_values = res$hat_values))
   } else {
     n = length(Y)
     fitted = matrix(nrow=n,ncol=ncv)
@@ -635,6 +648,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
         res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
       if(method=="HuberQp")
         res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
+      if(method=="QuantileQp")
+        res = QuantileQp(Z,Y,lambda,H,alpha=alpha,w=w,vrs=vrs)
       res_ts = transform_theta_location(res$theta_hat,tspr)
       fitted[,jcv] = res$fitted
       thetahat[,jcv] = res$theta_hat
