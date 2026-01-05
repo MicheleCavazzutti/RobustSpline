@@ -415,9 +415,12 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   if(lambda<0) stop("lambda must be a non-negative number.")
   # if(sc<=0) stop("Scale estimator must be strictly positive.")
   
+  sol = NULL
+  
   ### Solve the problem (C++ version)
   if(vrs=="C"){
-    return(HuberQpC(Z, Y, 2*n*lambda*H, w))
+    Z_sparse <- as(Z, "dgCMatrix")
+    sol = HuberQpC(Z_sparse, Y, 2*n*lambda*H, w)
   }
   
   huber_qp_osqp_penalized <- function(X, y, H, w, delta = 1.345) {
@@ -441,7 +444,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     ncons <- 3 * n      # constraints: 2n for t_i >= |y_i - X_i^T beta - a_i|, n for t_i >= 0
     
     # Quadratic term: P as sparse block-diagonal with H, I_n, and 0
-    P <- bdiag(H + 1e-6 * diag(p), Diagonal(n, 1 + 1e-6), Diagonal(n, 1e-6))
+    P <- bdiag(H + 1e-6 * diag(p), Diagonal(n, 1 + 1e-12), Diagonal(n, 1e-12))
     
     # Linear term: qvec = delta for t_i's
     qvec <- rep(0, nvars)
@@ -480,28 +483,31 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     uvec <- rep(Inf, ncons)
     
     # Solve QP using osqp (This is already a C++ routine)
-    settings <- osqpSettings(verbose = TRUE, max_iter = 10000,eps_abs = 1e-1, eps_rel = 1e-1)
+    settings <- osqpSettings(verbose = TRUE, max_iter = 4000,eps_abs = 1e-6, eps_rel = 1e-6)
     model <- osqp(P = P, q = qvec, A = A, l = lvec, u = uvec, pars = settings)
     sol <- model$Solve()
     
-    # Extract beta
-    beta <- sol$x[1:p]
-    
-    # Compute Hat matrix 
-    hat = X%*%solve(t(X)%*%diag(w)%*%X+lambda*H,t(X)%*%diag(w),tol=toler_solve)
-    
-    # Compute residuals
-    fitted = X%*%beta
-    resid = y - fitted
-    
     return(list(theta_hat = beta,
                 resids = resid,
-                hat_values = diag(hat),
                 fitted = fitted))
   }
   
   ### Solve using the R version (relies on the C++ oqsp routine)
-  if(vrs=="R") return(huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H, w))
+  if(vrs=="R") {sol = huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H, w)}
+  
+  theta = sol$theta_hat
+  
+  # Compute Hat matrix diagonal elements
+  M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
+  B <- solve(M, t(Z))   # p x m_star
+  hat_diag <- rowSums(Z * t(B)) * w 
+  
+  return(
+    list(theta_hat = sol$theta_hat,
+         resids = sol$resid,
+         fitted = sol$fitted,
+         hat_values = diag(hat_diag))
+  )
 }
 
 #' Fast Regression with Quantile (and absolute) Penalty - Quadratic programming solution
@@ -592,10 +598,12 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
     stop("H must be a square matrix with the same number of columns as Z.")
   if(lambda<0) stop("lambda must be a non-negative number.")
   
+  sol = NULL
+  
   ### Solve the problem (C++ version)
   if(vrs=="C"){
-    stop("C version not implemented yet!")
-    return(QuantileQpC(Z, Y, lambda, H, w, alpha))
+    Z_sparse <- as(Z, "dgCMatrix")
+    sol = QuantileQpC(Z_sparse, Y, lambda, H, w, alpha)
   }
   
   quantile_qp_osqp_penalized <- function(Z, Y, lambda, H, w, alpha) {
@@ -638,17 +646,12 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
     hvec <- c(Y, rep(Inf, m_star), rep(Inf, m_star))
     
     # Solve QP using osqp (This is already a C++ routine)
-    settings <- osqpSettings(verbose = TRUE, max_iter = 10000,eps_abs = 1e-2, eps_rel = 1e-2)
+    settings <- osqpSettings(verbose = FALSE, max_iter = 4000,eps_abs = 1e-6, eps_rel = 1e-6)
     model <- osqp(P = P, q = qvec, A = A, l = lvec, u = hvec, pars = settings)
     sol <- model$Solve()
     
     # Extract theta
     theta <- sol$x[1:p]
-    
-    # Compute Hat matrix diagonal elements
-    M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
-    B <- solve(M, t(Z)) 
-    hat_diag <- colSums(t(Z) * B) * w
     
     # Compute residuals
     fitted = as.numeric(Z%*%theta)
@@ -656,12 +659,26 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
     
     return(list(theta_hat = theta,
                 resids = resid,
-                hat_values = hat_diag,
                 fitted = fitted))
   }
   
   ### Solve using the R version (relies on the C++ oqsp routine)
-  if(vrs=="R") return(quantile_qp_osqp_penalized(Z, Y, lambda, H, w, alpha))
+  if(vrs=="R") {sol = quantile_qp_osqp_penalized(Z, Y, lambda, H, w, alpha)}
+  
+  theta = sol$theta_hat
+  
+  # Compute Hat matrix diagonal elements
+  M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
+  B <- solve(M, t(Z))   # p x m_star
+  hat_diag <- rowSums(Z * t(B)) * w 
+  
+  return(
+    list(theta_hat = sol$theta_hat,
+         resids = sol$resid,
+         fitted = sol$fitted,
+         hat_values = diag(hat_diag))
+  )
+  
 }
 
 #' Weight function for the IRLS algorithm

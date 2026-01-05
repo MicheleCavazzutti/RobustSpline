@@ -1,0 +1,3 @@
+#!/bin/sh
+rm -rf src/osqp/build
+rm -f src/*.o src/*.so

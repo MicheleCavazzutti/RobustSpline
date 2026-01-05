@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/michele/Scrivania/RobustSplines/src/osqp/build/algebra/builtin/qdldl_build",
+  "command": "/usr/bin/gcc  -I/home/michele/Scrivania/RobustSplines/src/osqp/algebra/_common/lin_sys/qdldl/qdldl_local/include -I/home/michele/Scrivania/RobustSplines/src/osqp/build/algebra/builtin/qdldl_build/include -O2 -Wno-error=format-security -O3 -O3 -O3 -DNDEBUG -fPIC -o CMakeFiles/qdldlobject.dir/src/qdldl.c.o -c /home/michele/Scrivania/RobustSplines/src/osqp/algebra/_common/lin_sys/qdldl/qdldl_local/src/qdldl.c",
+  "file": "/home/michele/Scrivania/RobustSplines/src/osqp/algebra/_common/lin_sys/qdldl/qdldl_local/src/qdldl.c",
+  "output": "algebra/builtin/qdldl_build/CMakeFiles/qdldlobject.dir/src/qdldl.c.o"
+}
+]

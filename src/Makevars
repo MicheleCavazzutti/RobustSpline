@@ -15,8 +15,21 @@
 ## set the appropriate value, possibly CXX17.
 #CXX_STD = CXX11
 
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
-PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
+OSQP_DIR = osqp
+OSQP_BUILD = $(OSQP_DIR)/build
 
-PKG_CPPFLAGS += -I/usr/local/include/osqp -I/usr/local/include
-PKG_LIBS += -L/usr/local/lib -Wl,-rpath,/usr/local/lib -losqp
+# Flag del compilatore
+# Aggiungiamo le directory degli header di OSQP
+PKG_CPPFLAGS = -I$(OSQP_DIR)/include -I$(OSQP_DIR)/build/include
+
+# Flag del linker
+# 1. Includiamo OpenMP, Lapack e Blas
+# 2. Puntiamo alla libreria statica corretta (libosqpstatic.a o libosqp.a)
+# Nota: il log indicava 'out/libosqpstatic.a'
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(OSQP_BUILD)/out/libosqpstatic.a
+
+# Opzionale: se CMake genera libosqp.a invece di libosqpstatic.a, usa questa:
+# PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(OSQP_BUILD)/out/libosqp.a
+
+# Mantieni le tue altre impostazioni
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)

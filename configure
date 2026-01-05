@@ -1,0 +1,33 @@
+#!/bin/sh
+
+echo "Configuring OSQP (CMake build)..."
+
+# Fail on first error
+set -e
+
+OSQP_DIR="src/osqp"
+BUILD_DIR="$OSQP_DIR/build"
+
+# Clean previous build if exists
+if [ -d "$BUILD_DIR" ]; then
+  echo "Removing existing OSQP build directory..."
+  rm -rf "$BUILD_DIR"
+fi
+
+mkdir -p "$BUILD_DIR"
+
+echo "Running CMake..."
+cmake -S "$OSQP_DIR" -B "$BUILD_DIR" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DOSQP_BUILD_DEMO=OFF \
+  -DOSQP_BUILD_EXAMPLES=OFF \
+  -DOSQP_ENABLE_CODEGEN=OFF \
+  -DBUILD_DEMO=OFF \
+  -DBUILD_EXAMPLES=OFF \
+  -DOSQP_BUILD_CLI=OFF
+
+echo "Building OSQP..."
+cmake --build "$BUILD_DIR" --config Release
+
+echo "OSQP build completed."

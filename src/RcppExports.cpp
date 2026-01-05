@@ -124,33 +124,33 @@ BEGIN_RCPP
 END_RCPP
 }
 // HuberQpC
-Rcpp::List HuberQpC(const arma::mat Z, const arma::vec Y, const arma::mat H, const arma::vec w, double delta);
+Rcpp::List HuberQpC(const arma::sp_mat& Z, const arma::vec& Y, const arma::mat& H, const arma::vec& w, double delta);
 RcppExport SEXP _RobustSpline_HuberQpC(SEXP ZSEXP, SEXP YSEXP, SEXP HSEXP, SEXP wSEXP, SEXP deltaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< const arma::mat >::type H(HSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type w(wSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type w(wSEXP);
     Rcpp::traits::input_parameter< double >::type delta(deltaSEXP);
     rcpp_result_gen = Rcpp::wrap(HuberQpC(Z, Y, H, w, delta));
     return rcpp_result_gen;
 END_RCPP
 }
 // QuantileQpC
-Rcpp::List QuantileQpC(const arma::mat Z, const arma::vec Y, const arma::mat H, const arma::vec w, double alpha, double lambda);
-RcppExport SEXP _RobustSpline_QuantileQpC(SEXP ZSEXP, SEXP YSEXP, SEXP HSEXP, SEXP wSEXP, SEXP alphaSEXP, SEXP lambdaSEXP) {
+Rcpp::List QuantileQpC(const arma::sp_mat& Z, const arma::vec& Y, double lambda, const arma::mat& H, const arma::vec& w, double alpha);
+RcppExport SEXP _RobustSpline_QuantileQpC(SEXP ZSEXP, SEXP YSEXP, SEXP lambdaSEXP, SEXP HSEXP, SEXP wSEXP, SEXP alphaSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat >::type Z(ZSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< const arma::mat >::type H(HSEXP);
-    Rcpp::traits::input_parameter< const arma::vec >::type w(wSEXP);
-    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< const arma::sp_mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Y(YSEXP);
     Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
-    rcpp_result_gen = Rcpp::wrap(QuantileQpC(Z, Y, H, w, alpha, lambda));
+    Rcpp::traits::input_parameter< const arma::mat& >::type H(HSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type w(wSEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    rcpp_result_gen = Rcpp::wrap(QuantileQpC(Z, Y, lambda, H, w, alpha));
     return rcpp_result_gen;
 END_RCPP
 }
