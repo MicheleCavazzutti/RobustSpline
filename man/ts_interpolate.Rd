@@ -79,4 +79,5 @@ if(d==2){
  rgl::plot3d(Xtobs[[i]]$tobs[,1], Xtobs[[i]]$tobs[,2], Xtobs[[i]]$X)
  rgl::points3d(intr$tobs[,1], intr$tobs[,2], intr$X[i,],col="red",add=TRUE)
 }
+
 }

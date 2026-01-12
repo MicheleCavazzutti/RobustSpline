@@ -68,4 +68,5 @@ preds = ts_predict_location(tobs, tobsnew, res$gamma_hat[,jcv],
 lines(tobsnew, preds, col=2, lwd=2)
 legend("topleft",c("data","true","estimated"),
        pch=16, col=c(1,"orange",2))
+
 }

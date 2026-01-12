@@ -99,4 +99,5 @@ res = IRLS(tspr$Z,Y,1e-3,tspr$H,"absolute")
 reconstruct(ts_prep = tspr, theta = transform_theta(res$theta_hat,tspr), 
 lambda=NULL, Y = Y, type = "absolute", 
 p1 = p1, betafull = gen$betafull)
+
 }

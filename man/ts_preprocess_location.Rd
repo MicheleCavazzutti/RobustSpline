@@ -67,7 +67,7 @@ tobs = matrix(runif(m*d), ncol=d) # matrix of observation times
 n = 20 # sample size
 truemeanf = function(x) 10+15*x[1]^2 # true mean function
 truemean = apply(tobs,1,truemeanf) # discretized values of the true mean
-Y = replicate(n, truemean + rnorm(m)) # matrix of discrete functiona data, size p*n
+Y = replicate(n, truemean + rnorm(m)) # matrix of discrete functional data, size p*n
 tsp = ts_preprocess_location(Y, tobs, 2) # preprocessing matrices 
 
 lambda0 = 1e-5 # regularization parameter
@@ -84,4 +84,5 @@ resf = transform_theta_location(res$theta_hat, tsp)
 plot(rep(tobs,n), c(Y), cex=.2, pch=16)
 points(tobs, truemean, pch=16, col="orange")
 points(tobs, resf$beta_hat, col=2, pch=16)
+
 }

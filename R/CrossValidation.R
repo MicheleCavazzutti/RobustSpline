@@ -90,6 +90,7 @@
 #' with(res,GCV_crit(resids,hat_values,custfun = function(r,h) sum(r^2)))
 #'     
 #' GCV(lambda,Z,Y,H,type,custfun = function(r,h) sum(r^2))
+#' @export
 
 GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1, 
                 vrs="C", custfun=NULL, 
@@ -198,6 +199,7 @@ GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1,
 #'     
 #' w = rep(1/n,n)
 #' GCV_location(lambda,Z,Y,H,type,w,custfun = function(r,h) sum(r^2))
+#' @export
 
 GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C", 
                          method="IRLS",
@@ -211,7 +213,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
     stop("method 'HuberQp' available only for type 'Huber'.")
-  if(method=="QuantileQp" & (type!="quantile"|type!="absolute")) 
+  if(method=="QuantileQp" & (type!="quantile" & type!="absolute")) 
     stop("method 'QuantileQp' available only for type 'quantile' or 'absolute'.")
   
   # Generalized cross-validation
@@ -310,6 +312,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
 #'     sum((r/(1-h))^2)))
 #'     
 #' GCV_ridge(lambda,Z,Y,H,custfun = function(r,h) sum((r/(1-h))^2))
+#' @export
 
 GCV_ridge <- function(lambda,Z,Y,H,vrs="C",custfun=NULL){
   # Generalized cross-validation for ridge
@@ -385,6 +388,7 @@ GCV_ridge <- function(lambda,Z,Y,H,vrs="C",custfun=NULL){
 #'     sum((r/(1-h))^2)))
 #'     
 #' GCV_ridge(lambda,Z,Y,H,custfun = function(r,h) sum((r/(1-h))^2))
+#' @export
 
 GCV_HuberQp <- function(lambda, Z, Y, H, vrs="C", custfun=NULL){
   # Generalized cross-validation for ridge
@@ -465,6 +469,7 @@ GCV_HuberQp <- function(lambda, Z, Y, H, vrs="C", custfun=NULL){
 #'     sum((r/(1-h))^2)))
 #'     
 #' GCV_QuantileQp(lambda,Z,Y,H,alpha=alpha,custfun = function(r,h) sum((r/(1-h))^2))
+#' @export
 
 GCV_QuantileQp <- function(lambda, Z, Y, H, alpha=1/2, vrs="C", custfun=NULL){
   # Generalized cross-validation for ridge
@@ -532,6 +537,8 @@ GCV_QuantileQp <- function(lambda, Z, Y, H, alpha=1/2, vrs="C", custfun=NULL){
 #' with(res,GCV_crit(resids,hat_values))
 #' with(res,GCV_crit(resids,hat_values,custfun = function(r,h) 
 #'     sum((r/(1-h))^2)))
+#' @importFrom robustbase scaleTau2
+#' @export
 
 GCV_crit = function(resids, hats, custfun=NULL){
   n = length(resids)
@@ -608,6 +615,7 @@ GCV_crit = function(resids, hats, custfun=NULL){
 #' type = "absolute" # absolute loss
 #' 
 #' kCV(lambda,Z,Y,H,type,k=5)
+#' @export
 
 kCV = function(lambda,Z,Y,H,type,alpha=1/2,k=5,vrs="C"){
   # k-fold cross-validation

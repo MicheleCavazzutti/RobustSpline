@@ -71,4 +71,5 @@ vorArea(x = matrix(sort(x),ncol=1),I.method="chull",plot=TRUE)
 vorArea(x = matrix(sort(x),ncol=1),I.method="box",I=c(0,1),plot=TRUE)
 # (c) I = [-1,1]
 vorArea(x = matrix(sort(x),ncol=1),I.method="chull",I=matrix(c(-1,1),ncol=1),plot=TRUE)
+
 }

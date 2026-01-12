@@ -102,4 +102,5 @@ tspr = ts_preprocess(X,tobs,m)
 
 # Thin-plate spline ridge regression
 ridge(tspr$Z,gen$Y,1e-3,tspr$H)
+
 }

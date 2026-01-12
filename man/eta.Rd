@@ -22,4 +22,5 @@ The function \code{eta_{m,d}} involved in the definition of a
 }
 \examples{
 curve(eta(x,d=1,m=3),-5,5) 
+
 }

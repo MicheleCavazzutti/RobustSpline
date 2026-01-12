@@ -75,6 +75,9 @@
 #' plot(rep(tobs,n), c(Y), cex=.2, pch=16)
 #' points(tobs, truemean, pch=16, col="orange")
 #' points(tobs, resf$beta_hat, col=2, pch=16)
+#' 
+#' @importFrom MASS Null
+#' @export
 
 ts_preprocess_location = function(Y, tobs, r){
   
@@ -233,6 +236,8 @@ ts_preprocess_location = function(Y, tobs, r){
 #' lines(tobsnew, preds, col=2, lwd=2)
 #' legend("topleft",c("data","true","estimated"),
 #'        pch=16, col=c(1,"orange",2))
+#' 
+#' @export
 
 ts_predict_location = function(tobs, tobsnew, gamma, delta, r){
   
@@ -320,6 +325,8 @@ ts_predict_location = function(tobs, tobsnew, gamma, delta, r){
 #' plot(rep(tobs,n), c(Y), cex=.2, pch=16)
 #' points(tobs, truemean, pch=16, col="orange")
 #' points(tobs, resf$beta_hat, col=2, pch=16)
+#' 
+#' @export
 
 transform_theta_location = function(theta, tspr){
   p = tspr$p
@@ -473,6 +480,10 @@ transform_theta_location = function(theta, tspr){
 #' for(i in 1:m) for(j in 1:n) if(B[i,j]==0) Y[i,j] = NA
 #' 
 #' res = ts_location(Y, tobs=tobs, r=2, type="square", plotCV=TRUE)
+#' 
+#' @importFrom graphics abline par points plot title legend
+#' @importFrom stats median
+#' @export
 
 ts_location = function(Y, tobs, r, type, alpha=1/2,
                        jcv = "all", vrs="C", method="IRLS",
@@ -489,7 +500,7 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
     stop("method 'ridge' available only for type 'square'.")
   if(method=="HuberQp" & type!="Huber") 
     stop("method 'HuberQp' available only for type 'Huber'.")
-  if(method=="QuantileQp" & (type!="quantile"|type!="absolute" )) 
+  if(method=="QuantileQp" & (type!="quantile" & type!="absolute" )) 
     stop("method 'QuantileQp' available only for type 'quantile' or 'absolute'.")
   
   jcv = match.arg(jcv,c("all", "AIC", "GCV", "GCV(tr)", "BIC", "rGCV", 

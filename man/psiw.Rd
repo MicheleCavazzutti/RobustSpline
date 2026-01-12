@@ -21,9 +21,8 @@ logistic loss \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
 taken to be \code{alpha=1/2}, which gives the absolute loss 
 (\code{type="absolute"}).}
 
-\item{tuning}{Tuning parameter, a non-negative real number. For the absolute
-or the quantile loss,
-this should be a small number that 'smooths' out the numerical effects of
+\item{tuning}{Tuning parameter, a non-negative real number. For the absolute 
+or the quantile loss this should be a small number that 'smooths' out the numerical effects of
 the kink of \code{rho} near the origin (by default \code{tuning = 1/100}. 
 For the Huber loss \code{tuning} is the constant to be used in the function
 (by default \code{tuning = 1.345}. For \code{type=2} or \code{type=4} this 
@@ -41,4 +40,5 @@ curve(psiw(x,type=1,tuning=0.1),-5,5) # absolute loss with tuning
 curve(psiw(x,type=2),-5,5) # square loss
 curve(psiw(x,type=3),-5,5) # Huber loss
 curve(psiw(x,type=4),-5,5) # logistic loss
+
 }

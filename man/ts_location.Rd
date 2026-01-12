@@ -2,7 +2,7 @@
 % Please edit documentation in R/RobustLocation.R
 \name{ts_location}
 \alias{ts_location}
-\title{Robust thin-plate splines location estmation for functional data}
+\title{Robust thin-plate splines location estimation for functional data}
 \usage{
 ts_location(
   Y,
@@ -80,9 +80,12 @@ either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the
 \link{IRLS}.}
 
 \item{method}{A method for estimating the fit. Possible options are 
-\code{"IRLS"} for the IRLS algorithm, or \code{"ridge"} for ridge regression.
+\code{"IRLS"} for the IRLS algorithm, \code{"ridge"} for ridge regression, or
+\code{"HuberQp"} for Huber regression based on quadratic programming.
 Ridge is applicable only if \code{type="square"}; this method is much faster,
-but provides only a non-robust fit.}
+but provides only a non-robust fit. HuberQp is applicable only if \code{type="huber"};
+this method is faster than the IRLS and also provides a robust fit. However, is not 
+as fast as ridge.}
 
 \item{plotCV}{Indicator of whether a plot of the evaluated cross-validation 
 criteria as a function of \code{lambda} should be given.}
@@ -142,7 +145,7 @@ specified cross-validation criterion.
 \examples{
 d = 1                              # dimension of domain
 m = 50                             # number of observation points
-tobs = matrix(runif(m*d), ncol=d)  # location of obsevation points
+tobs = matrix(runif(m*d), ncol=d)  # location of observation points
 n = 20                             # sample size
 truemeanf = function(x)            # true location function 
   cos(4*pi*x[1])
@@ -155,6 +158,7 @@ B = matrix(rbinom(n*m,1,obsprob),ncol=n)
 for(i in 1:m) for(j in 1:n) if(B[i,j]==0) Y[i,j] = NA
 
 res = ts_location(Y, tobs=tobs, r=2, type="square", plotCV=TRUE)
+
 }
 \references{
 Ioannis Kalogridis and Stanislav Nagy. (2025). Robust multidimensional 

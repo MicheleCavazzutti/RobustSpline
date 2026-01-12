@@ -10,7 +10,8 @@ Authors@R: c(person("Stanislav", "Nagy", role = c("aut", "cre"),
 Maintainer: Stanislav Nagy <nagy@karlin.mff.cuni.cz>
 Description: Thin-plate spline methods for functional data: (i) regression for functional predictors and scalar response, and (ii) robust (multivariate) functional location estimation. The random functions are supposed to be discretely observed, but their domains are allowed to be multi-dimensional. Both robust and non-robust fits are implemented.
 License: GPL-2
-Depends: R (>= 2.10.0), deldir, quantreg, polyclip, osqp
-Imports: Rcpp (>= 1.0.10)
+Depends: R (>= 2.10.0)
+Imports: Rcpp (>= 1.0.10), Matrix, deldir, quantreg, polyclip, osqp, robustbase, MASS, methods, graphics
 LinkingTo: Rcpp, RcppArmadillo, osqp
 RoxygenNote: 7.3.3
+Encoding: UTF-8

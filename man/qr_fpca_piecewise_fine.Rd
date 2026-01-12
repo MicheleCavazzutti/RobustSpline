@@ -54,6 +54,7 @@ Y = X[,1]   # response vector
 tobs = sort(runif(p)) 
 
 (res = qr_fpca_piecewise_fine(X, Y, tobs))
+
 }
 \references{
 Kato, K. (2012). Estimation in functional linear quantile regression. 

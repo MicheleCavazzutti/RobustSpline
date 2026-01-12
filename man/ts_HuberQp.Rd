@@ -146,6 +146,7 @@ Y = X[,1]   # response vector
 tobs = matrix(sort(runif(p)),ncol=1)
 
 res = ts_HuberQp(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
+
 }
 \references{
 Ioannis Kalogridis and Stanislav Nagy. (2023). Robust functional regression 

@@ -129,6 +129,8 @@
 #' 
 #' # Check that betafull0 is flattened version of betafull
 #' all.equal(c(gen$betafull), gen$betafull0)
+#' 
+#' @export
 
 generate = function(alpha0, beta0, n, d, p,  
                     bfX, bcX, sd.noiseEps, obs_only = FALSE, p1 = 101, sd.noiseX=0){
@@ -308,6 +310,8 @@ generate = function(alpha0, beta0, n, d, p,
 #' reconstruct(ts_prep = tspr, theta = transform_theta(res$theta_hat,tspr), 
 #' lambda=NULL, Y = Y, type = "absolute", 
 #' p1 = p1, betafull = gen$betafull)
+#' 
+#' @export
 
 reconstruct = function(ts_prep = NULL, 
                        theta=NULL, lambda=NULL,
@@ -449,6 +453,8 @@ reconstruct = function(ts_prep = NULL,
 #'  rgl::plot3d(Xtobs[[i]]$tobs[,1], Xtobs[[i]]$tobs[,2], Xtobs[[i]]$X)
 #'  rgl::points3d(intr$tobs[,1], intr$tobs[,2], intr$X[i,],col="red",add=TRUE)
 #'}
+#'
+#'@export
 
 ts_interpolate = function(Xtobs, r, p.out = 101, I=c(0,1), 
                           solve.method=c("C","R")){
@@ -561,6 +567,9 @@ ts_interpolate = function(Xtobs, r, p.out = 101, I=c(0,1),
 #' tobs = sort(runif(p)) 
 #' 
 #' (res = qr_fpca_piecewise_fine(X, Y, tobs))
+#' 
+#' @importFrom quantreg rq
+#' @export
 
 qr_fpca_piecewise_fine <- function(X, Y, t, tau = 0.5, K_max = 10, n_fine = 200) {
   

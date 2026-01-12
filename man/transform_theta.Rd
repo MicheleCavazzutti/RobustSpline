@@ -63,4 +63,5 @@ res = ridge(tspr$Z,Y,1e-3,tspr$H)
 
 # Transform the coefficients
 transform_theta(res$theta_hat, tspr)
+
 }

@@ -1,3 +1,7 @@
+#' @useDynLib RobustSpline, .registration = TRUE
+#' @importFrom Rcpp evalCpp
+NULL
+
 #' Iteratively Reweighted Least Squares for robust functional regression
 #'
 #' Iteratively Reweighted Least Squares (IRLS) algorithm that is used to 
@@ -129,6 +133,8 @@
 #' max(abs(res_C$theta_hat-res_R$theta_hat))
 #' # Visualize the difference between the results
 #' plot(res_C$theta_hat ~ res_R$theta_hat)
+#' 
+#' @export
 
 IRLS = function(Z, Y, lambda, H, type, alpha=1/2, w=NULL, sc = 1, 
                 resids.in = rep(1,length(Y)), 
@@ -296,6 +302,8 @@ IRLS = function(Z, Y, lambda, H, type, alpha=1/2, w=NULL, sc = 1,
 #' # Compare the output with function IRLS
 #' res_IRLS = IRLS(Z, Y, lambda, H, type="square")
 #' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+#' 
+#' @export
 
 ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   
@@ -399,12 +407,17 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' # Compare the output with function IRLS
 #' res_IRLS = IRLS(Z, Y, lambda, H, type="Huber")
 #' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+#' 
+#' @importFrom Matrix bdiag Diagonal sparseMatrix
+#' @importFrom methods as
+#' @importFrom osqp osqp osqpSettings
+#' @export
 
 HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   n = length(Y)
   if(is.null(w)) w = rep(1/n,n)
   # Scale the weights i order to obtain the exact result of IRLS (the entire equation is scaled)
-  w = w*n 
+  #w = w 
   vrs = match.arg(vrs,c("C","R"))
   if(nrow(Z)!=length(Y)) 
     stop("Number of rows of Z must equal the lenght of Y.")
@@ -420,7 +433,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   ### Solve the problem (C++ version)
   if(vrs=="C"){
     Z_sparse <- as(Z, "dgCMatrix")
-    sol = HuberQpC(Z_sparse, Y, 2*n*lambda*H, w)
+    sol = HuberQpC(Z_sparse, Y, 2*lambda*H, w)
   }
   
   huber_qp_osqp_penalized <- function(X, y, H, w, delta = 1.345) {
@@ -437,18 +450,18 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     
     ### Applying the weights (Check that we obtain the same results with IRLS) #### CHECK
     ### AAA
-    X1 = diag(w)%*%X
-    y1 = w*y # diag(w) %*% Y if Y is a columns vector
+    #X1 = diag(w)%*%X
+    #y1 = w*y # diag(w) %*% Y if Y is a columns vector
     
     nvars <- p + 2 * n  # variables: beta (p), a (n), t (n)
     ncons <- 3 * n      # constraints: 2n for t_i >= |y_i - X_i^T beta - a_i|, n for t_i >= 0
     
     # Quadratic term: P as sparse block-diagonal with H, I_n, and 0
-    P <- bdiag(H + 1e-6 * diag(p), Diagonal(n, 1 + 1e-12), Diagonal(n, 1e-12))
+    P <- bdiag(H + 1e-12 * diag(p), Diagonal(x = w + 1e-12), Diagonal(n, 1e-12))
     
     # Linear term: qvec = delta for t_i's
     qvec <- rep(0, nvars)
-    qvec[(p + n + 1):nvars] <- delta
+    qvec[(p + n + 1):nvars] <- w * delta
     
     # Constraints: A %*% x >= lvec
     Amat <- matrix(0, ncons, nvars)  # ncons rows x nvars cols
@@ -457,17 +470,17 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     for (i in 1:n) {
       # Constraint 1: t_i + X_i^T beta + a_i >= y_i
       row1 <- (i - 1) * 2 + 1
-      Amat[row1, 1:p] <- X1[i, ]
+      Amat[row1, 1:p] <- X[i, ]
       Amat[row1, p + i] <- 1
       Amat[row1, p + n + i] <- 1
-      bvec[row1] <- y1[i]
+      bvec[row1] <- y[i]
       
       # Constraint 2: t_i - X_i^T beta - a_i >= -y_i
       row2 <- (i - 1) * 2 + 2
-      Amat[row2, 1:p] <- -X1[i, ]
+      Amat[row2, 1:p] <- -X[i, ]
       Amat[row2, p + i] <- -1
       Amat[row2, p + n + i] <- 1
-      bvec[row2] <- -y1[i]
+      bvec[row2] <- -y[i]
       
       # Constraint 3: t_i >= 0
       row3 <- 2 * n + i
@@ -483,9 +496,16 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     uvec <- rep(Inf, ncons)
     
     # Solve QP using osqp (This is already a C++ routine)
-    settings <- osqpSettings(verbose = TRUE, max_iter = 4000,eps_abs = 1e-6, eps_rel = 1e-6)
+    settings <- osqpSettings(verbose = FALSE, max_iter = 10000,eps_abs = 1e-10, eps_rel = 1e-10)
     model <- osqp(P = P, q = qvec, A = A, l = lvec, u = uvec, pars = settings)
     sol <- model$Solve()
+    
+    # Extract beta
+    beta <- sol$x[1:p]
+    
+    # Compute residuals
+    fitted = as.numeric(Z%*%beta)
+    resid = Y - fitted
     
     return(list(theta_hat = beta,
                 resids = resid,
@@ -493,20 +513,20 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   }
   
   ### Solve using the R version (relies on the C++ oqsp routine)
-  if(vrs=="R") {sol = huber_qp_osqp_penalized(Z, Y, 2*n*lambda*H, w)}
+  if(vrs=="R") {sol = huber_qp_osqp_penalized(Z, Y, 2*lambda*H, w)}
   
   theta = sol$theta_hat
   
   # Compute Hat matrix diagonal elements
   M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
   B <- solve(M, t(Z))   # p x m_star
-  hat_diag <- rowSums(Z * t(B)) * w 
+  hat_diag <- rowSums(Z * t(B)) * w ## Major diagonal of H matr
   
   return(
     list(theta_hat = sol$theta_hat,
          resids = sol$resid,
          fitted = sol$fitted,
-         hat_values = diag(hat_diag))
+         hat_values = hat_diag)
   )
 }
 
@@ -516,10 +536,10 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' in a linear functional regression model. The solution corresponds to the 
 #' result of function \link{IRLS} with \code{type="Quantile"} or \code{type="Absolute"} if \code{"alpha"} is 0.5.
 #'
-#' @param Z Data matrix of dimension \code{m_{\star}}-times-\code{p}, where \code{m_{\star}} is
+#' @param Z Data matrix of dimension \code{\eqn{m_{\star}}}-times-\code{p}, where \code{\eqn{m_{\star}}} is
 #' the total number of observations, \code{p} is the dimension of \code{theta}.
 #'
-#' @param Y Vector of total responses of length \code{m_{\star}}=\sum_{i=1}^{\code{n}}(\code{m_i}).
+#' @param Y Vector of total responses of length \code{\eqn{m_{\star}}}=\eqn{\sum_{i=1}^{\code{n}}(\code{m_i})}.
 #'
 #' @param lambda Tuning parameter, a non-negative real number.
 #'
@@ -547,19 +567,19 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' @details This function is equivalent with 
 #' \link{IRLS} when used with the loss \code{type="Absolute"} if \code{alpha} = 1/2 and  \code{type="Quantile"} otherwise,
 #'  but faster and more stable as it does not perform the iterative algorithm. Note that this function
-#' is faster than \link{IRLS} only if the number of predictors p is larger than the number of functional observations m_{\star}.
-#' On the contrary, if m_{\star} > p, \link{IRLS} is faster, even though less accurate. When p > m_{\star}, the  \code{vrs="C"} version is
+#' is faster than \link{IRLS} only if the number of predictors p is larger than the number of functional observations \eqn{m_{\star}}.
+#' On the contrary, if \eqn{m_{\star}} > p, \link{IRLS} is faster, even though less accurate. When p > \eqn{m_{\star}}, the  \code{vrs="C"} version is
 #' faster than the  \code{vrs="R"} one.
 #'
 #' @return A list composed of:
 #' \itemize{
 #'  \item{"theta_hat"}{ A numerical matrix of size \code{p}-times-\code{1} of 
 #'  estimated regression coefficients.}
-#'  \item{"resids"}{ A numerical vecotor of length \code{m_{\star} containing the final
+#'  \item{"resids"}{ A numerical vecotor of length \code{\eqn{m_{\star}}} containing the final
 #'  set of residuals in the fit of \code{Y} on \code{Z}.}
 #'  \item{"hat_values"}{ Diagonal terms of the (penalized) hat matrix of
-#'  the form \code{Z*solve(t(Z)*Z + m_{\star}*lambda*H)*t(Z)}.}
-#'  \item{"fitted"}{ Fitted values in the model. A vector of length \code{m_{\star}} 
+#'  the form \code{Z*solve(t(Z)*Z + \eqn{m_{\star}}*lambda*H)*t(Z)}.}
+#'  \item{"fitted"}{ Fitted values in the model. A vector of length \code{\eqn{m_{\star}}} 
 #'  correponding to the fits of \code{Y}.}
 #' }
 #' 
@@ -570,7 +590,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' @examples
 #' n = 50      # sample size
 #' p = 10      # dimension of predictors
-#' Z = matrix(rnorm(n*p),ncol=p) # design matrix m_{\star} x p 
+#' Z = matrix(rnorm(n*p),ncol=p) # design matrix \eqn{m_{\star}} x p 
 #' Y = Z[,1]   # response vector
 #' lambda = 1  # tuning parameter for penalization
 #' H = diag(p) # penalty matrix
@@ -583,8 +603,13 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' plot(res_C$theta_hat ~ res_R$theta_hat)
 #' 
 #' # Compare the output with function IRLS
-#' res_IRLS = IRLS(Z, Y, lambda, H, type="Quantile")
+#' res_IRLS = IRLS(Z, Y, lambda, H, type="quantile")
 #' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+#' 
+#' @importFrom Matrix bdiag Diagonal sparseMatrix
+#' @importFrom methods as
+#' @importFrom osqp osqp osqpSettings
+#' @export
 
 QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solve=1e-35){
   m_star = length(Y)
@@ -670,13 +695,13 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
   # Compute Hat matrix diagonal elements
   M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
   B <- solve(M, t(Z))   # p x m_star
-  hat_diag <- rowSums(Z * t(B)) * w 
+  hat_diag <- rowSums(Z * t(B)) * w ### Major diagonal of H matrix
   
   return(
     list(theta_hat = sol$theta_hat,
          resids = sol$resid,
          fitted = sol$fitted,
-         hat_values = diag(hat_diag))
+         hat_values = hat_diag)
   )
   
 }
@@ -715,6 +740,8 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
 #' curve(psiw(x,type=2),-5,5) # square loss
 #' curve(psiw(x,type=3),-5,5) # Huber loss
 #' curve(psiw(x,type=4),-5,5) # logistic loss
+#' 
+#' @export
 
 psiw = function(t,type,alpha=1/2,tuning=NULL){
   # Type is now only the code 1-4
@@ -761,6 +788,8 @@ psiw = function(t,type,alpha=1/2,tuning=NULL){
 #' curve(rho(x,type="square"),-5,5) # square loss
 #' curve(rho(x,type="Huber"),-5,5) # Huber loss
 #' curve(rho(x,type="logistic"),-5,5) # logistic loss
+#' 
+#' @export
 
 rho = function(t,type,alpha=1/2,tuning=1.345){ # loss function
   type = match.arg(type,c("square","absolute","quantile","Huber","logistic"))
@@ -789,6 +818,8 @@ rho = function(t,type,alpha=1/2,tuning=1.345){ # loss function
 #'
 #' @examples
 #' curve(eta(x,d=1,m=3),-5,5) 
+#' 
+#' @export
 
 eta = function(x,d,m){
   if(d%%2==0){
@@ -865,6 +896,8 @@ eta = function(x,d,m){
 #' vorArea(x = matrix(sort(x),ncol=1),I.method="box",I=c(0,1),plot=TRUE)
 #' # (c) I = [-1,1]
 #' vorArea(x = matrix(sort(x),ncol=1),I.method="chull",I=matrix(c(-1,1),ncol=1),plot=TRUE)
+#' 
+#' @export
 
 vorArea = function(x, I.method = "chull", I=NULL, scale = TRUE, plot = FALSE){
   # input:

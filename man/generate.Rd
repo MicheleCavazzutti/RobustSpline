@@ -150,4 +150,5 @@ all.equal(apply(gen$Xfull,1,function(x) mean(x*gen$betafull)),gen$truemean)
 
 # Check that betafull0 is flattened version of betafull
 all.equal(c(gen$betafull), gen$betafull0)
+
 }

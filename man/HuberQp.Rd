@@ -75,6 +75,7 @@ plot(res_C$theta_hat ~ res_R$theta_hat)
 # Compare the output with function IRLS
 res_IRLS = IRLS(Z, Y, lambda, H, type="Huber")
 max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+
 }
 \seealso{
 \link{IRLS} for an iterative version of this

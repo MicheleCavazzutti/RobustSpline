@@ -298,36 +298,41 @@ Rcpp::List HuberQpC(const arma::sp_mat& Z,
 
     // 1. Matrice P
     arma::sp_mat Psp(n_vars, n_vars);
-    arma::mat H_reg = H;
-    H_reg.diag() += 1e-9; 
-    Psp.submat(0, 0, p-1, p-1) = arma::sp_mat(H_reg);
-    for(int j = p; j < n_vars; ++j) Psp(j, j) = 1e-9; 
+    Psp.submat(0, 0, p-1, p-1) = arma::sp_mat(H); // H regolarizzazione (già 2*lambda*H)
+    for(int i = 0; i < n; ++i) {
+      Psp(p + i, p + i) = w(i) + 1e-12;        // Pesi sulla parte quadratica 'a'
+      Psp(p + n + i, p + n + i) = 1e-12;       // Regolarizzazione per 't'
+    }
+    // NEW
+    Psp = arma::trimatu(Psp);
 
     // 2. Vettore q
     arma::vec qvec = arma::zeros<arma::vec>(n_vars);
-    qvec.subvec(p, n_vars - 1).fill(delta);
     for(int i = 0; i < n; ++i) {
-        qvec(p + i) *= w(i);
-        qvec(p + n + i) *= w(i);
+      qvec(p + n + i) = w(i) * delta;          // Peso * delta solo su t
     }
 
     // 3. Matrice A
     // FORZIAMO la valutazione dell'espressione per evitare l'errore di conversione
-    arma::sp_mat Zw(arma::diagmat(w) * Z); 
-    
     arma::sp_mat sp_In = arma::speye<arma::sp_mat>(n, n);
     arma::sp_mat Asp(n_cons, n_vars);
-    Asp.submat(0, 0, n-1, p-1) = Zw;
+    Asp.submat(0, 0, n-1, p-1) = Z;
     Asp.submat(0, p, n-1, p+n-1) = sp_In;
     Asp.submat(0, p+n, n-1, n_vars-1) = sp_In;
-    Asp.submat(n, p, 2*n-1, p+n-1) = sp_In;
+    // NEW
+    Asp.submat(n, 0, 2*n-1, p-1) = -Z;
+    Asp.submat(n, p, 2*n-1, p+n-1) = -sp_In;
+    // OLD
+    //Asp.submat(n, p, 2*n-1, p+n-1) = sp_In;
     Asp.submat(2*n, p+n, 3*n-1, n_vars-1) = sp_In;
 
-    arma::vec Yw = Y % w;
-    arma::vec lvec = arma::join_cols(Yw, arma::zeros<arma::vec>(2 * n));
-    arma::vec uvec = lvec;
-    uvec.subvec(0, n-1).fill(OSQP_INFTY); 
-    uvec.subvec(n, 3*n-1).fill(OSQP_INFTY);
+    arma::vec lvec(n_cons);
+    lvec.subvec(0, n-1)        = Y;
+    lvec.subvec(n, 2*n-1)      = -Y;
+    lvec.subvec(2*n, 3*n-1).zeros();
+    
+    arma::vec uvec(n_cons);
+    uvec.fill(OSQP_INFTY);
 
     // 4. OSQP Setup
     std::vector<OSQPFloat> Px, Ax;
@@ -340,8 +345,8 @@ Rcpp::List HuberQpC(const arma::sp_mat& Z,
     OSQPSettings* settings = (OSQPSettings*)malloc(sizeof(OSQPSettings));
     if(settings) osqp_set_default_settings(settings);
     settings->verbose = 0;
-    settings->eps_abs = 1e-6; 
-    settings->eps_rel = 1e-6;
+    settings->eps_abs = 1e-10; 
+    settings->eps_rel = 1e-10;
 
     OSQPSolver* solver = nullptr;
     osqp_setup(&solver, P_osqp, qvec.memptr(), A_osqp, lvec.memptr(), uvec.memptr(), n_cons, n_vars, settings);

@@ -8,7 +8,7 @@ transform_theta_location(theta, tspr)
 }
 \arguments{
 \item{theta}{Output vector of raw results of length \code{p} from function
-\link{IRLS} or \link{ridge}.}
+\link{IRLS}, \link{ridge} or \link{HuberQp}.}
 
 \item{tspr}{Output of \link{ts_preprocess_location}.}
 }
@@ -31,7 +31,7 @@ A list of estimated parameters:
 }
 \description{
 Splits the vector of raw estimated coefficients (output of functions 
-\link{IRLS} or \link{ridge}) after performing \link{ts_preprocess_locationi} 
+\link{IRLS}, \link{ridge} or \link{HuberQp}) after performing \link{ts_preprocess_locationi} 
 into parts interpretable in the setup of thin-plate spline location 
 estimation.
 }
@@ -59,4 +59,5 @@ resf = transform_theta_location(res$theta_hat, tsp)
 plot(rep(tobs,n), c(Y), cex=.2, pch=16)
 points(tobs, truemean, pch=16, col="orange")
 points(tobs, resf$beta_hat, col=2, pch=16)
+
 }

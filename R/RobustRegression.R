@@ -93,6 +93,9 @@
 #' 
 #' # Thin-plate spline ridge regression
 #' ridge(tspr$Z,gen$Y,1e-3,tspr$H)
+#'
+#' @importFrom MASS Null
+#' @export
 
 ts_preprocess = function(X, tobs, m, int_weights=TRUE, 
                          I.method = "chull", I=NULL){
@@ -220,6 +223,8 @@ ts_preprocess = function(X, tobs, m, int_weights=TRUE,
 #' 
 #' # Transform the coefficients
 #' transform_theta(res$theta_hat, tspr)
+#' 
+#' @export
 
 transform_theta = function(theta,tspr){
   p = tspr$p
@@ -411,6 +416,9 @@ transform_theta = function(theta,tspr){
 #' type = "absolute" # absolute loss
 #' 
 #' res = ts_reg(X, Y, tobs, m = 2, type = type, jcv = "all", plotCV = TRUE)
+#' 
+#' @importFrom graphics abline par points plot
+#' @export
 
 ts_reg = function(X, Y, tobs, m, type, alpha=1/2, jcv = "all", 
                   sc = 1, vrs="C", 
@@ -687,6 +695,8 @@ ts_reg = function(X, Y, tobs, m, type, alpha=1/2, jcv = "all",
 #' tobs = matrix(sort(runif(p)),ncol=1)
 #' 
 #' res = ts_ridge(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
+#' 
+#' @export
 
 ts_ridge = function(X, Y, tobs, m, jcv = "all", vrs="C", 
                     plotCV=FALSE, lambda_grid=NULL,
@@ -933,6 +943,8 @@ ts_ridge = function(X, Y, tobs, m, jcv = "all", vrs="C",
 #' tobs = matrix(sort(runif(p)),ncol=1)
 #' 
 #' res = ts_HuberQp(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
+#' 
+#' @export
 
 ts_HuberQp = function(X, Y, tobs, m, jcv = "all", vrs="C", 
                     plotCV=FALSE, lambda_grid=NULL,
@@ -1183,6 +1195,8 @@ ts_HuberQp = function(X, Y, tobs, m, jcv = "all", vrs="C",
 #' tobs = matrix(sort(runif(p)),ncol=1)
 #' 
 #' res = ts_HuberQp(X, Y, tobs, m = 2, jcv = "all", plotCV = TRUE)
+#' 
+#' @export
 
 ts_QuantileQp = function(X, Y, tobs, m, alpha = 1/2, jcv = "all", vrs="C", 
                       plotCV=FALSE, lambda_grid=NULL,

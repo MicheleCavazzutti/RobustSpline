@@ -57,7 +57,7 @@ that is no scaling is performed.}
 the IRLS algorithm.}
 
 \item{tuning}{A non-negative tuning constant for the absolute/quantile loss 
-function (that is, \code{type="absolute"} or \code{type="tuning"}). 
+function (that is, \code{type="absolute"} or \code{type="quantile"}). 
 For \code{tuning = 0} the standard 
 absolute loss \code{rho(t) = |t|/2} is used (or its asymmetric version for
 the quantile loss). For \code{tuning > 0}, the Huber 
@@ -72,7 +72,7 @@ residuals drops below \code{toler}.}
 
 \item{imax}{Maximum number of allowed iterations of IRLS.}
 
-\item{vrs}{Version of the algorhitm to be used. The program is prepared in
+\item{vrs}{Version of the algorithm to be used. The program is prepared in
 two versions: i) \code{vrs="C"} calls the \code{C++} version of the 
 algorithm, programmed within the \code{RCppArmadillo} framework for
 manipulating matrices. This is typically the fastest version. 
@@ -142,8 +142,9 @@ res_C$ic
 res_R$ic
 # Check the maximum absolute difference between the results
 max(abs(res_C$theta_hat-res_R$theta_hat))
-# Visualise the difference between the results
+# Visualize the difference between the results
 plot(res_C$theta_hat ~ res_R$theta_hat)
+
 }
 \references{
 Ioannis Kalogridis and Stanislav Nagy. (2025). Robust functional regression 

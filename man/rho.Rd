@@ -4,7 +4,7 @@
 \alias{rho}
 \title{Loss functions}
 \usage{
-rho(t, type, alpha = 1/2, Hk = 1.345)
+rho(t, type, alpha = 1/2, tuning = 1.345)
 }
 \arguments{
 \item{t}{Vector of input values of length \code{n}.}
@@ -15,7 +15,7 @@ Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
 \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
 \code{type="square"} for the square loss \code{rho(t)=t^2}; 
 \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
-\code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
+ \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and
 \code{type="logistic"} for the logistic loss 
 \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.}
 
@@ -23,8 +23,8 @@ Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
 taken to be \code{alpha=1/2}, which gives the absolute loss 
 (\code{type="absolute"}).}
 
-\item{Hk}{Tuning parameter, a non-negative real number, affects only
-the Huber loss (by default \code{Hk = 1.345}.}
+\item{tuning}{tuning parameter, a non-negative real number, affects only
+the Huber loss (by default \code{tuning = 1.345}.}
 }
 \value{
 A numerical vector of values.
@@ -34,7 +34,9 @@ Several typically used loss functions \code{rho}.
 }
 \examples{
 curve(rho(x,type="absolute"),-5,5) # absolute loss with tuning
+curve(rho(x,type="quantile", alpha = 0.1),-5,5) # quantile loss 
 curve(rho(x,type="square"),-5,5) # square loss
 curve(rho(x,type="Huber"),-5,5) # Huber loss
 curve(rho(x,type="logistic"),-5,5) # logistic loss
+
 }
