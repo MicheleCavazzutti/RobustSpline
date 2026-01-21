@@ -451,6 +451,7 @@ transform_theta_location = function(theta, tspr){
 #'  final iteration of \link{IRLS}. A numerical vector of length \code{m}.}
 #'  \item{"converged"}{ Indicator whether the \link{IRLS} procedure succefully 
 #'  converged. Takes value 1 if IRLS converged, 0 otherwise.}
+#'  \item{"obj_fun"}{ Objective function evaluated in the estimated theta hat.}
 #' }
 #' In case when \code{jcv="all"}, all these values are given for each 
 #' cross-validation method considered. For \code{lambda} and \code{converged} 
@@ -527,9 +528,9 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
   
   if(is.null(lambda_grid)){
     # define grid for search for lambda
-    rho1 = -5  # search range minimium exp(rho1)
+    rho1 = -12  # search range minimium exp(rho1)
     rho2 = -1   # search range maximum exp(rho2)
-    if(is.null(lambda_length)) lambda_length = 10
+    if(is.null(lambda_length)) lambda_length = 20
     lambda_grid = exp(seq(rho1,rho2,length=lambda_length-1))
   } else {
     if(!is.numeric(lambda_grid)) 
@@ -589,16 +590,24 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
   if(jcv>0){
     lambda = lopt[jcv] # lambda parameter selected
     #
-    if(method=="IRLS") 
+    if(method=="IRLS"){ 
       res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
                  resids.in = resids.in, 
                  toler=toler, imax=imax)
-    if(method=="ridge")
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+    }
+    if(method=="ridge"){
       res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
-    if(method=="HuberQp")
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+    }
+    if(method=="HuberQp"){
       res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
-    if(method=="QuantileQp")
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+    }
+    if(method=="QuantileQp"){
       res = QuantileQp(Z,Y,lambda,H,alpha = alpha,w=w,vrs=vrs)
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+    }
     res_ts = transform_theta_location(res$theta_hat,tspr)
     if(method=="IRLS") return(
       list(lambda = lambda,
@@ -610,7 +619,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
            delta_hat = res_ts$delta_hat,
            hat_values = res$hat_values,
            weights = res$weights, 
-           converged = res$converged))
+           converged = res$converged,
+           obj_fun = obj_fun_eval))
     if(method=="ridge") return(
       list(lambda = lambda,
            fitted = res$fitted, 
@@ -619,7 +629,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
            beta_hat = res_ts$beta_hat,
            gamma_hat = res_ts$gamma_hat,
            delta_hat = res_ts$delta_hat,
-           hat_values = res$hat_values))
+           hat_values = res$hat_values,
+           obj_fun = obj_fun_eval))
     if(method=="HuberQp") return(
       list(lambda = lambda,
            fitted = res$fitted, 
@@ -628,7 +639,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
            beta_hat = res_ts$beta_hat,
            gamma_hat = res_ts$gamma_hat,
            delta_hat = res_ts$delta_hat,
-           hat_values = res$hat_values))
+           hat_values = res$hat_values,
+           obj_fun = obj_fun_eval))
     if(method=="QuantileQp") return(
       list(lambda = lambda,
            fitted = res$fitted, 
@@ -637,7 +649,8 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
            beta_hat = res_ts$beta_hat,
            gamma_hat = res_ts$gamma_hat,
            delta_hat = res_ts$delta_hat,
-           hat_values = res$hat_values))
+           hat_values = res$hat_values,
+           obj_fun = obj_fun_eval))
   } else {
     n = length(Y)
     fitted = matrix(nrow=n,ncol=ncv)
@@ -648,19 +661,28 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
     hatvals = matrix(nrow=n, ncol=ncv)
     weights = matrix(nrow=n, ncol=ncv)
     converged = rep(NA,ncv)
+    obj_fun = rep(NA,ncv)
     for(jcv in 1:ncv){
       lambda = lopt[jcv] # lambda parameter selected
       #
-      if(method=="IRLS")
+      if(method=="IRLS"){
         res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
                    resids.in = resids.in, 
                    toler=toler, imax=imax)
-      if(method=="ridge")
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      }
+      if(method=="ridge"){
         res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
-      if(method=="HuberQp")
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      }
+      if(method=="HuberQp"){
         res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
-      if(method=="QuantileQp")
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      }
+      if(method=="QuantileQp"){
         res = QuantileQp(Z,Y,lambda,H,alpha=alpha,w=w,vrs=vrs)
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      }
       res_ts = transform_theta_location(res$theta_hat,tspr)
       fitted[,jcv] = res$fitted
       thetahat[,jcv] = res$theta_hat
@@ -672,6 +694,7 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
         weights[,jcv] = res$weights
         converged[jcv] = res$converged
       }
+      obj_fun[jcv] = obj_fun_eval
     }
     return(list(lambda = lopt,
                 fitted = fitted,
@@ -682,6 +705,7 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
                 delta_hat = deltahat,
                 hat_values = hatvals,
                 weights = weights, 
-                converged = converged))
+                converged = converged,
+                obj_fun = obj_fun))
   }
 }

@@ -303,7 +303,7 @@ Rcpp::List HuberQpC(const arma::sp_mat& Z,
       Psp(p + i, p + i) = w(i) + 1e-12;        // Pesi sulla parte quadratica 'a'
       Psp(p + n + i, p + n + i) = 1e-12;       // Regolarizzazione per 't'
     }
-    // NEW
+    
     Psp = arma::trimatu(Psp);
 
     // 2. Vettore q
@@ -319,11 +319,9 @@ Rcpp::List HuberQpC(const arma::sp_mat& Z,
     Asp.submat(0, 0, n-1, p-1) = Z;
     Asp.submat(0, p, n-1, p+n-1) = sp_In;
     Asp.submat(0, p+n, n-1, n_vars-1) = sp_In;
-    // NEW
     Asp.submat(n, 0, 2*n-1, p-1) = -Z;
     Asp.submat(n, p, 2*n-1, p+n-1) = -sp_In;
-    // OLD
-    //Asp.submat(n, p, 2*n-1, p+n-1) = sp_In;
+    Asp.submat(n, p+n, 2*n-1, n_vars-1) = sp_In;
     Asp.submat(2*n, p+n, 3*n-1, n_vars-1) = sp_In;
 
     arma::vec lvec(n_cons);
@@ -345,8 +343,8 @@ Rcpp::List HuberQpC(const arma::sp_mat& Z,
     OSQPSettings* settings = (OSQPSettings*)malloc(sizeof(OSQPSettings));
     if(settings) osqp_set_default_settings(settings);
     settings->verbose = 0;
-    settings->eps_abs = 1e-10; 
-    settings->eps_rel = 1e-10;
+    settings->eps_abs = 1e-6; 
+    settings->eps_rel = 1e-6;
 
     OSQPSolver* solver = nullptr;
     osqp_setup(&solver, P_osqp, qvec.memptr(), A_osqp, lvec.memptr(), uvec.memptr(), n_cons, n_vars, settings);
@@ -385,9 +383,11 @@ Rcpp::List QuantileQpC(const arma::sp_mat& Z,
 
     arma::sp_mat Psp(n_vars, n_vars);
     arma::mat H_p = 2.0 * lambda * H;
-    H_p.diag() += 1e-12; 
+    H_p.diag() += 1e-6; 
     Psp.submat(0, 0, p-1, p-1) = arma::sp_mat(H_p);
-    for(int j = p; j < n_vars; ++j) Psp(j, j) = 1e-12;
+    for(int j = p; j < n_vars; ++j) Psp(j, j) = 1e-6;
+
+    Psp = arma::trimatu(Psp);
 
     arma::vec qvec = arma::zeros<arma::vec>(n_vars);
     qvec.subvec(p, p + n - 1) = alpha * w;
@@ -415,8 +415,8 @@ Rcpp::List QuantileQpC(const arma::sp_mat& Z,
     OSQPSettings* settings = (OSQPSettings*)malloc(sizeof(OSQPSettings));
     if(settings) osqp_set_default_settings(settings);
     settings->verbose = 0;
-    settings->eps_abs = 1e-6; 
-    settings->eps_rel = 1e-6; 
+    settings->eps_abs = 1e-4; 
+    settings->eps_rel = 1e-4; 
 
     OSQPSolver* solver = nullptr;
     osqp_setup(&solver, P_osqp, qvec.memptr(), A_osqp, lvec.memptr(), uvec.memptr(), n_cons, n_vars, settings);

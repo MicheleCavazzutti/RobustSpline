@@ -207,7 +207,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
                          resids.in = rep(1,length(Y)),
                          toler=1e-7, imax=1000){
   
-  method = match.arg(method,c("IRLS", "ridge", "HuberQp"))
+  method = match.arg(method,c("IRLS", "ridge", "HuberQp", "QuantileQp"))
   type = match.arg(type,c("square","absolute", "quantile", "Huber","logistic"))
   if(method=="ridge" & type!="square") 
     stop("method 'ridge' available only for type 'square'.")

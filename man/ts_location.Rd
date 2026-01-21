@@ -127,6 +127,7 @@ not. If a specific cross-validation method is selected (that is,
  final iteration of \link{IRLS}. A numerical vector of length \code{m}.}
  \item{"converged"}{ Indicator whether the \link{IRLS} procedure succefully 
  converged. Takes value 1 if IRLS converged, 0 otherwise.}
+ \item{"obj_fun"}{ Objective function evaluated in the estimated theta hat.}
 }
 In case when \code{jcv="all"}, all these values are given for each 
 cross-validation method considered. For \code{lambda} and \code{converged} 

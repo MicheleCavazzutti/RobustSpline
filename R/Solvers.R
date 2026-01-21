@@ -524,7 +524,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   
   return(
     list(theta_hat = sol$theta_hat,
-         resids = sol$resid,
+         resids = sol$resids,
          fitted = sol$fitted,
          hat_values = hat_diag)
   )
@@ -699,7 +699,7 @@ QuantileQp = function(Z, Y, lambda, H,  alpha = 1/2, w=NULL, vrs="C", toler_solv
   
   return(
     list(theta_hat = sol$theta_hat,
-         resids = sol$resid,
+         resids = sol$resids,
          fitted = sol$fitted,
          hat_values = hat_diag)
   )
@@ -830,6 +830,72 @@ eta = function(x,d,m){
   }
   if(d%%2==1) return(gamma(d/2-m)/(2^{2*m}*pi^{d/2}*factorial(m-1))*
                        x^{2*m-d})
+}
+
+#' Objective function
+#'
+#' Evaluates the location and regression objective function given the imput parameters. Used to assess accuracy of the models.
+#'
+#' @param theta Minimizer of the loss, obtained through IRLS or others. Vector of dimension p.
+#' 
+#' @param Y Minimizer of the loss, obtained through IRLS, ridge, or quadratic solvers. Dimension \eqn{m_{\star}}.
+#' 
+#' @param Z Z matrix of the problem. Dimension \eqn{m_{\star}} x p.
+#' 
+#' @param H_star lambda x H matrix, drives the quadratic penalization of the model. Dimension p x p. 
+#'
+#' @param type The type of the loss function used in the minimization problem.
+#' Accepted are \code{type="absolute"} for the absolute loss \code{rho(t)=|t|/2};
+#' \code{type="quantile"} for the (asymmetric) quantile loss 
+#' \code{rho(t)=t(alpha-I[t<0])} (\code{absolute} loss with \code{alpha=1/2});
+#' \code{type="square"} for the square loss \code{rho(t)=t^2}; 
+#' \code{type="Huber"} for the Huber loss \code{rho(t)=t^2/2} if 
+#'  \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and
+#' \code{type="logistic"} for the logistic loss 
+#' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param alpha The order of the quantile if \code{type="quantile"}. By default
+#' taken to be \code{alpha=1/2}, which gives the absolute loss 
+#' (\code{type="absolute"}).
+#'
+#' @param tuning tuning parameter, a non-negative real number, affects only
+#' the Huber loss (by default \code{tuning = 1.345}.
+#'
+#' @return A numerical value.
+#' 
+#' @examples
+#' n = 50      # sample size
+#' p = 10      # dimension of predictors
+#' Z = matrix(rnorm(n*p),ncol=p) # design matrix \eqn{m_{\star}} x p 
+#' Y = Z[,1]   # response vector
+#' lambda = 1  # tuning parameter for penalization
+#' H = diag(p) # penalty matrix
+#' 
+#' res_C = QuantileQp(Z, Y, lambda, H, vrs="C")
+#' res_R = QuantileQp(Z, Y, lambda, H, vrs="R")
+#' # Check the maximum absolute difference between the results
+#' max(abs(res_C$theta_hat-res_R$theta_hat))
+#' # Visualize the difference between the results
+#' plot(res_C$theta_hat ~ res_R$theta_hat)
+#' 
+#' # Compare the output with function IRLS
+#' res_IRLS = IRLS(Z, Y, lambda, H, type="quantile")
+#' max(abs(res_C$theta_hat-res_IRLS$theta_hat))
+#' 
+#' evaluate_objective(res_C$theta_hat, Y, Z, lambda*H, type="quantile")
+#' 
+#' @export
+
+evaluate_objective = function(theta, Y, Z, H_star,type,alpha=1/2,tuning=1.345){ # objective function
+  
+  result = 0
+  Z_th = Z %*% theta
+  for(i in 1:length(Y)){
+    result = result + rho(t = Y[i] - Z_th[i], type = type, alpha = alpha, tuning = tuning)
+  }
+  result = result/length(Y)
+  result = result + sum(theta * ( H_star %*% theta))
+  return(result)
 }
 
 #' Area of the cells in Voronoi tesselation

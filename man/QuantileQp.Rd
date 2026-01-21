@@ -86,7 +86,7 @@ max(abs(res_C$theta_hat-res_R$theta_hat))
 plot(res_C$theta_hat ~ res_R$theta_hat)
 
 # Compare the output with function IRLS
-res_IRLS = IRLS(Z, Y, lambda, H, type="Quantile")
+res_IRLS = IRLS(Z, Y, lambda, H, type="quantile")
 max(abs(res_C$theta_hat-res_IRLS$theta_hat))
 
 }
