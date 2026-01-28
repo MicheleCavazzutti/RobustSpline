@@ -363,6 +363,8 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' ii) \code{vrs="R"} calls the \code{R} version. The two versions may 
 #' give slightly different results due to the different tolerances used for the solution
 #' of the qudratic problem.
+#' 
+#' @param tuning A non-negative tuning constant for the Huber loss function. Default: 1.345.
 #'
 #' @param toler_solve Unused at the moment
 #'
@@ -413,7 +415,7 @@ ridge = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
 #' @importFrom osqp osqp osqpSettings
 #' @export
 
-HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
+HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", tuning = 1.345, toler_solve=1e-35){
   n = length(Y)
   if(is.null(w)) w = rep(1/n,n)
   # Scale the weights i order to obtain the exact result of IRLS (the entire equation is scaled)
@@ -427,13 +429,16 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
     stop("H must be a square matrix with the same number of columns as Z.")
   if(lambda<0) stop("lambda must be a non-negative number.")
   # if(sc<=0) stop("Scale estimator must be strictly positive.")
+  if(is.null(tuning)){
+    tuning = 1.345
+  }
   
   sol = NULL
   
   ### Solve the problem (C++ version)
   if(vrs=="C"){
     Z_sparse <- as(Z, "dgCMatrix")
-    sol = HuberQpC(Z_sparse, Y, 2*lambda*H, w)
+    sol = HuberQpC(Z_sparse, Y, 2*lambda*H, w, delta = tuning)
   }
   
   huber_qp_osqp_penalized <- function(X, y, H, w, delta = 1.345) {
@@ -513,7 +518,7 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", toler_solve=1e-35){
   }
   
   ### Solve using the R version (relies on the C++ oqsp routine)
-  if(vrs=="R") {sol = huber_qp_osqp_penalized(Z, Y, 2*lambda*H, w)}
+  if(vrs=="R") {sol = huber_qp_osqp_penalized(Z, Y, 2*lambda*H, w,delta=tuning)}
   
   theta = sol$theta_hat
   
@@ -887,6 +892,11 @@ eta = function(x,d,m){
 #' @export
 
 evaluate_objective = function(theta, Y, Z, H_star,type,alpha=1/2,tuning=1.345){ # objective function
+  
+  if(is.null(tuning)){
+    ### Huner loss, set tuning to default 1.345
+    tuning = 1.345
+  }
   
   result = 0
   Z_th = Z %*% theta

@@ -23,6 +23,15 @@
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#'
+#' @param tuning A non-negative tuning constant for the Huber/quantile loss 
+#' function (that is, \code{type="absolute"} or \code{type="quantile"}). 
+#' For \code{tuning = 0} the standard 
+#' absolute loss \code{rho(t) = |t|/2} is used (or its asymmetric version for
+#' the quantile loss). For \code{tuning > 0}, the Huber 
+#' loss is used, that is \code{rho(t)} is quadratic for \code{|t|<tuning} and 
+#' linear for \code{|t|>=tuning}. The function is chosen so that \code{rho} 
+#' is always continuously differentiable.
 #' 
 #' @param alpha The order of the quantile if \code{type="quantile"}. By default
 #' taken to be \code{alpha=1/2}, which gives the absolute loss 
@@ -92,7 +101,7 @@
 #' GCV(lambda,Z,Y,H,type,custfun = function(r,h) sum(r^2))
 #' @export
 
-GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1, 
+GCV <- function(lambda, Z, Y, H, type, tuning = NULL, alpha = 1/2, sc = 1, 
                 vrs="C", custfun=NULL, 
                 resids.in = rep(1,length(Y)),
                 toler=1e-7, imax=1000){
@@ -100,7 +109,7 @@ GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1,
   ncv = 6
   if(!is.null(custfun)) ncv = 7
   vrs = match.arg(vrs, c("C", "R"))
-  fit.r <- IRLS(Z, Y, lambda, H, type, alpha = alpha, sc = sc, vrs=vrs, 
+  fit.r <- IRLS(Z, Y, lambda, H, type, alpha = alpha, sc = sc, tuning = tuning, vrs=vrs, 
                 resids.in = resids.in,
                 toler=toler, imax=imax)
   GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,
@@ -134,6 +143,15 @@ GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1,
 #' \code{|t|<tuning} and \code{rho(t)=tuning*(|t|-tuning/2)} otherwise; and 
 #' \code{type="logistic"} for the logistic loss 
 #' \code{rho(t)=2*t + 4*log(1+exp(-t))-4*log(2)}.
+#' 
+#' @param tuning A non-negative tuning constant for the Huber/quantile loss 
+#' function (that is, \code{type="absolute"} or \code{type="quantile"}). 
+#' For \code{tuning = 0} the standard 
+#' absolute loss \code{rho(t) = |t|/2} is used (or its asymmetric version for
+#' the quantile loss). For \code{tuning > 0}, the Huber 
+#' loss is used, that is \code{rho(t)} is quadratic for \code{|t|<tuning} and 
+#' linear for \code{|t|>=tuning}. The function is chosen so that \code{rho} 
+#' is always continuously differentiable.
 #' 
 #' @param alpha The order of the quantile if \code{type="quantile"}. By default
 #' taken to be \code{alpha=1/2}, which gives the absolute loss 
@@ -201,7 +219,7 @@ GCV <- function(lambda, Z, Y, H, type, alpha = 1/2, sc = 1,
 #' GCV_location(lambda,Z,Y,H,type,w,custfun = function(r,h) sum(r^2))
 #' @export
 
-GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C", 
+GCV_location <- function(lambda, Z, Y, H, type, tuning = NULL, alpha=1/2, w, vrs="C", 
                          method="IRLS",
                          custfun=NULL, 
                          resids.in = rep(1,length(Y)),
@@ -222,7 +240,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
   vrs = match.arg(vrs, c("C", "R"))
   
   if(method=="IRLS"){
-    fit.r <- IRLS(Z, Y, lambda, H, type=type, alpha=alpha, w=w, vrs=vrs, 
+    fit.r <- IRLS(Z, Y, lambda, H, type=type, alpha=alpha, w=w, tuning = tuning, vrs=vrs, 
                   resids.in = resids.in,
                   toler=toler, imax=imax)
     GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,
@@ -235,7 +253,7 @@ GCV_location <- function(lambda, Z, Y, H, type,  alpha=1/2, w, vrs="C",
     return(c(GCV.scores, 1, 0))
   }
   if(method=="HuberQp"){
-    fit.r <- HuberQp(Z, Y, lambda, H, w=w, vrs=vrs)
+    fit.r <- HuberQp(Z, Y, lambda, H, w=w, vrs=vrs, tuning = tuning)
     GCV.scores <- GCV_crit(fit.r$resids,fit.r$hat_values,custfun=custfun)
     return(c(GCV.scores, 1, 0))
   }
@@ -342,6 +360,9 @@ GCV_ridge <- function(lambda,Z,Y,H,vrs="C",custfun=NULL){
 #' either \code{vrs="C"} for the \code{C++} version, or \code{vrs="R"} for the 
 #' \code{R} version. Both should give (nearly) identical results, see 
 #' \link{HuberQp}.
+#' 
+#' @param tuning A non-negative tuning constant for the Huber loss 
+#' function. If left to NULL, defaults to 1.345.
 #'
 #' @param custfun A custom function combining the residuals \code{resids}, the 
 #' hat values \code{hats}. The result of the function must be numeric, see
@@ -390,10 +411,10 @@ GCV_ridge <- function(lambda,Z,Y,H,vrs="C",custfun=NULL){
 #' GCV_ridge(lambda,Z,Y,H,custfun = function(r,h) sum((r/(1-h))^2))
 #' @export
 
-GCV_HuberQp <- function(lambda, Z, Y, H, vrs="C", custfun=NULL){
+GCV_HuberQp <- function(lambda, Z, Y, H, vrs="C", tuning = NULL, custfun=NULL){
   # Generalized cross-validation for ridge
   vrs = match.arg(vrs, c("C", "R"))
-  fit.r <- HuberQp(Z,Y,lambda,H,vrs=vrs)
+  fit.r <- HuberQp(Z,Y,lambda,H,vrs=vrs,tuning = tuning,)
   GCV.scores <- GCV_crit(fit.r$resids, fit.r$hat_values, custfun=custfun)
   return(GCV.scores)
 }

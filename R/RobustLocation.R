@@ -375,6 +375,10 @@ transform_theta_location = function(theta, tspr){
 #' taken to be \code{alpha=1/2}, which gives the absolute loss 
 #' (\code{type="absolute"}).
 #' 
+#' @param tuning A non-negative tuning constant for the Huber/quantile loss 
+#' function (that is,  \code{type="Huber"}, \code{type="absolute"} or \code{type="quantile"}). 
+#' If left to NULL is defaulted to standard values. See \link{IRLS} and \link{HuberQp} for further details.
+#' 
 #' @param jcv A numerical indicator of the cross-validation method used to 
 #' select the tuning parameter \code{lambda}. The criteria are always 
 #' based on the residuals (\code{resids}) and hat values (\code{hats}) in
@@ -486,7 +490,7 @@ transform_theta_location = function(theta, tspr){
 #' @importFrom stats median
 #' @export
 
-ts_location = function(Y, tobs, r, type, alpha=1/2,
+ts_location = function(Y, tobs, r, type, alpha=1/2, tuning = NULL,
                        jcv = "all", vrs="C", method="IRLS",
                        plotCV=FALSE, lambda_grid=NULL,
                        lambda_length = 51, custfun=NULL,
@@ -543,7 +547,7 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
   
   GCVfull <- Vectorize(
     function(x) GCV_location(x,
-                             Z = Z, Y = Y, H = H, type=type, alpha=alpha, w=w, vrs=vrs,
+                             Z = Z, Y = Y, H = H, type=type, tuning = tuning, alpha=alpha, w=w, vrs=vrs,
                              method = method,
                              custfun = custfun,
                              resids.in = resids.in,
@@ -591,18 +595,18 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
     lambda = lopt[jcv] # lambda parameter selected
     #
     if(method=="IRLS"){ 
-      res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
+      res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,tuning=tuning,vrs=vrs,sc=1, 
                  resids.in = resids.in, 
                  toler=toler, imax=imax)
-      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=tuning)
     }
     if(method=="ridge"){
       res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
       obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
     }
     if(method=="HuberQp"){
-      res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
-      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+      res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs,tuning=tuning)
+      obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=tuning)
     }
     if(method=="QuantileQp"){
       res = QuantileQp(Z,Y,lambda,H,alpha = alpha,w=w,vrs=vrs)
@@ -666,18 +670,18 @@ ts_location = function(Y, tobs, r, type, alpha=1/2,
       lambda = lopt[jcv] # lambda parameter selected
       #
       if(method=="IRLS"){
-        res = IRLS(Z,Y,lambda,H,type=type,alpha=alpha,w=w,vrs=vrs,sc=1, 
+        res = IRLS(Z,Y,lambda,H,type=type,tuning=tuning,alpha=alpha,w=w,vrs=vrs,sc=1, 
                    resids.in = resids.in, 
                    toler=toler, imax=imax)
-        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=tuning)
       }
       if(method=="ridge"){
         res = ridge(Z,Y,lambda,H,w=w,vrs=vrs)
         obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
       }
       if(method=="HuberQp"){
-        res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs)
-        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=1.345)
+        res = HuberQp(Z,Y,lambda,H,w=w,vrs=vrs,tuning=tuning)
+        obj_fun_eval <- evaluate_objective(res$theta_hat, Y, Z, lambda*H,type=type,alpha=alpha,tuning=tuning)
       }
       if(method=="QuantileQp"){
         res = QuantileQp(Z,Y,lambda,H,alpha=alpha,w=w,vrs=vrs)
