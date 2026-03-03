@@ -523,9 +523,14 @@ HuberQp = function(Z, Y, lambda, H, w=NULL, vrs="C", tuning = 1.345, toler_solve
   theta = sol$theta_hat
   
   # Compute Hat matrix diagonal elements
-  M <- t(Z) %*% Diagonal(x = w) %*% Z + lambda * H
+  # Compute the effective weight, based on MASS:rlm
+  res_abs <- abs(sol$resids)
+  weights_huber <- ifelse(res_abs <= tuning, 1, tuning / res_abs)
+  W_eff <- Diagonal(x = w * weights_huber)
+  
+  M <- t(Z) %*% W_eff %*% Z + lambda * H
   B <- solve(M, t(Z))   # p x m_star
-  hat_diag <- rowSums(Z * t(B)) * w ## Major diagonal of H matr
+  hat_diag <- rowSums(Z * t(B)) * ( w * weights_huber)  ## Major diagonal of H matr
   
   return(
     list(theta_hat = sol$theta_hat,

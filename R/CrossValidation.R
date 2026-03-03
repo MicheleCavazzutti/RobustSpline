@@ -638,7 +638,7 @@ GCV_crit = function(resids, hats, custfun=NULL){
 #' kCV(lambda,Z,Y,H,type,k=5)
 #' @export
 
-kCV = function(lambda,Z,Y,H,type,alpha=1/2,k=5,vrs="C"){
+kCV = function(lambda,Z,Y,H,type,alpha=1/2,k=5,vrs="C",tuning = 1.345){
   # k-fold cross-validation
   vrs = match.arg(vrs, c("C", "R"))
   n = length(Y)
@@ -654,7 +654,7 @@ kCV = function(lambda,Z,Y,H,type,alpha=1/2,k=5,vrs="C"){
     Ye = Y[!bi]  # Y for estimation
     Zt = Z[bi,]  # Z for testing
     Yt = Y[bi]   # Y for testing
-    fit.r <- IRLS(Ze,Ye,lambda,H,type,alpha=alpha,vrs=vrs)
+    fit.r <- IRLS(Ze,Ye,lambda,H,type,alpha=alpha,vrs=vrs,tuning=tuning)
     rest = Yt - Zt%*%fit.r$theta_hat # residuals for the testing part
     # if(fit.r$converged==0) rest = rep(Inf,length(Yt)) # If IRLS did not converge
     crit[ki] = median(rest^2) # robustbase::scaleTau2(rest^2, c2 = 5)
