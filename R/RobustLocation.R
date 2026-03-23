@@ -545,6 +545,10 @@ ts_location = function(Y, tobs, r, type, alpha=1/2, tuning = NULL,
     lambda_length = length(lambda_grid)
   }
   
+  if(lambda_length==1){
+    lopt = rep(lambda_grid[1],7) # 7 CV evaluation methods, nothing special
+    ncv = 7 # 7 CV evaluation methods, nothing special
+  }else{
   GCVfull <- Vectorize(
     function(x) GCV_location(x,
                              Z = Z, Y = Y, H = H, type=type, tuning = tuning, alpha=alpha, w=w, vrs=vrs,
@@ -590,6 +594,7 @@ ts_location = function(Y, tobs, r, type, alpha=1/2, tuning = NULL,
   }
   
   lopt = lambda_grid[apply(GCVfull,1,which.min)]
+  }
   
   if(jcv>0){
     lambda = lopt[jcv] # lambda parameter selected
